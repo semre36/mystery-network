@@ -6,22 +6,22 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 
 ## Roadmap Overview
 
-| Phase  | Title                              |                                    Status                                     | Primary Focus                                                                                                   |
-| :----: | :--------------------------------- | :---------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------- |
-| **01** | **Project Foundation**             |                                 **Completed**                                 | Modular Monolith scaffolding, strict TypeScript, Tailwind CSS, health check, baseline tests, architecture docs. |
-| **02** | **Database Architecture & Prisma** | **In Progress (Schema & Client Ready, Remote Migration Pending Credentials)** | Neon PostgreSQL, Prisma schema, relational data modeling, migrations, connection pooling.                       |
-| **03** | Telegram Bot Integration           |                                    Pending                                    | Telegram Bot API setup, webhook lifecycle, bot commands, onboarding links.                                      |
-| **04** | Telegram Authentication            |                                    Pending                                    | HMAC-SHA256 initData cryptographic verification, session issuance, secure auth tokens.                          |
-| **05** | Player Interface                   |                                    Pending                                    | Investigator dossier, profile setup, preferences, active case status view.                                      |
-| **06** | Case Management                    |                                    Pending                                    | Case catalog, difficulty ratings, acts, episodic releases, immutable case definitions.                          |
-| **07** | Investigation Engine               |                                    Pending                                    | Session state machine, investigation timelines, stage transitions, progress tracking.                           |
-| **08** | Evidence System                    |                                    Pending                                    | Asymmetric clue distribution, clue cards, forensic document viewer, IDOR protection.                            |
-| **09** | Team Collaboration                 |                                    Pending                                    | Squad formation, invite codes, squad detective rooms, safe clue sharing channels.                               |
-| **10** | Interactive Puzzles                |                                    Pending                                    | Minigames, cipher decoders, cryptograms, logic puzzles, server-side validation.                                 |
-| **11** | Investigation Board                |                                    Pending                                    | Interactive canvas/graph for linking suspects, clues, timelines, and motives.                                   |
-| **12** | Submissions and Rewards            |                                    Pending                                    | Final theory filing, evidence citation, evaluation scoring, XP, detective badges.                               |
-| **13** | Admin Dashboard                    |                                    Pending                                    | Authoring studio for cases, content moderation, user auditing, system metrics.                                  |
-| **14** | Testing, Optimization & Deployment |                                    Pending                                    | End-to-end load testing, security audits, caching optimization, production deployment.                          |
+| Phase  | Title                              |    Status     | Primary Focus                                                                                                   |
+| :----: | :--------------------------------- | :-----------: | :-------------------------------------------------------------------------------------------------------------- |
+| **01** | **Project Foundation**             | **Completed** | Modular Monolith scaffolding, strict TypeScript, Tailwind CSS, health check, baseline tests, architecture docs. |
+| **02** | **Database Architecture & Prisma** | **Completed** | Neon PostgreSQL, Prisma schema, relational data modeling, migrations, connection pooling.                       |
+| **03** | Telegram Bot Integration           |    Pending    | Telegram Bot API setup, webhook lifecycle, bot commands, onboarding links.                                      |
+| **04** | Telegram Authentication            |    Pending    | HMAC-SHA256 initData cryptographic verification, session issuance, secure auth tokens.                          |
+| **05** | Player Interface                   |    Pending    | Investigator dossier, profile setup, preferences, active case status view.                                      |
+| **06** | Case Management                    |    Pending    | Case catalog, difficulty ratings, acts, episodic releases, immutable case definitions.                          |
+| **07** | Investigation Engine               |    Pending    | Session state machine, investigation timelines, stage transitions, progress tracking.                           |
+| **08** | Evidence System                    |    Pending    | Asymmetric clue distribution, clue cards, forensic document viewer, IDOR protection.                            |
+| **09** | Team Collaboration                 |    Pending    | Squad formation, invite codes, squad detective rooms, safe clue sharing channels.                               |
+| **10** | Interactive Puzzles                |    Pending    | Minigames, cipher decoders, cryptograms, logic puzzles, server-side validation.                                 |
+| **11** | Investigation Board                |    Pending    | Interactive canvas/graph for linking suspects, clues, timelines, and motives.                                   |
+| **12** | Submissions and Rewards            |    Pending    | Final theory filing, evidence citation, evaluation scoring, XP, detective badges.                               |
+| **13** | Admin Dashboard                    |    Pending    | Authoring studio for cases, content moderation, user auditing, system metrics.                                  |
+| **14** | Testing, Optimization & Deployment |    Pending    | End-to-end load testing, security audits, caching optimization, production deployment.                          |
 
 ---
 
@@ -64,7 +64,8 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 - [x] Neon connection pooling (`DATABASE_URL`) and direct migration URL (`DIRECT_URL`) documented in `.env.example`.
 - [x] Automated database model and enum test suite implemented (`tests/database.test.ts`).
 - [x] Comprehensive database architecture documentation with Mermaid ER diagram created (`docs/DATABASE_ARCHITECTURE.md`).
-- [x] Existing Phase 01 functionality verified without regressions (typecheck, lint, build, all 22 tests passing).
-- [ ] Remote Neon PostgreSQL credentials configured in private `.env.local` by developer.
-- [ ] Initial migration applied against live Neon database (`npm run db:migrate`).
-- [ ] Live database seed verified against live Neon database (`npm run db:seed`).
+- [x] Existing Phase 01 functionality verified without regressions (typecheck, lint, build, all 23 tests passing).
+- [x] Remote Neon PostgreSQL credentials configured in private environment (`.env`).
+- [x] Initial migration applied against live Neon database (`20261105194152_init_mystery_network`).
+- [x] Live database seed verified against live Neon database (idempotent, verified via `npm run db:seed`).
+- [x] Live Neon database query and content retrieval verified in automated tests.
