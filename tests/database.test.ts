@@ -176,33 +176,29 @@ describe("Database Architecture & Prisma Setup (Phase 02)", () => {
   });
 
   describe("Live Neon Database Connectivity & Content Verification", () => {
-    it(
-      "should query the seeded benchmark campaign and case from Neon",
-      async () => {
-        if (!process.env.DATABASE_URL || process.env.DATABASE_URL.includes("placeholder")) {
-          return;
-        }
+    it("should query the seeded benchmark campaign and case from Neon", async () => {
+      if (!process.env.DATABASE_URL || process.env.DATABASE_URL.includes("placeholder")) {
+        return;
+      }
 
-        const campaign = await prisma.campaign.findUnique({
-          where: { slug: "project-midnight" },
-        });
-        expect(campaign).toBeDefined();
-        expect(campaign?.slug).toBe("project-midnight");
+      const campaign = await prisma.campaign.findUnique({
+        where: { slug: "project-midnight" },
+      });
+      expect(campaign).toBeDefined();
+      expect(campaign?.slug).toBe("project-midnight");
 
-        const benchmarkCase = await prisma.case.findUnique({
-          where: { caseCode: "CASE-001-MIDNIGHT-PROTOCOL" },
-          include: { chapters: true, clues: true, puzzles: true },
-        });
-        expect(benchmarkCase).toBeDefined();
-        expect(benchmarkCase?.caseCode).toBe("CASE-001-MIDNIGHT-PROTOCOL");
-        expect(benchmarkCase?.chapters.length).toBeGreaterThanOrEqual(2);
-        expect(benchmarkCase?.clues.length).toBeGreaterThanOrEqual(1);
-        expect(benchmarkCase?.puzzles.length).toBeGreaterThanOrEqual(1);
+      const benchmarkCase = await prisma.case.findUnique({
+        where: { caseCode: "CASE-001-MIDNIGHT-PROTOCOL" },
+        include: { chapters: true, clues: true, puzzles: true },
+      });
+      expect(benchmarkCase).toBeDefined();
+      expect(benchmarkCase?.caseCode).toBe("CASE-001-MIDNIGHT-PROTOCOL");
+      expect(benchmarkCase?.chapters.length).toBeGreaterThanOrEqual(2);
+      expect(benchmarkCase?.clues.length).toBeGreaterThanOrEqual(1);
+      expect(benchmarkCase?.puzzles.length).toBeGreaterThanOrEqual(1);
 
-        const achievementsCount = await prisma.achievement.count();
-        expect(achievementsCount).toBeGreaterThanOrEqual(4);
-      },
-      25000
-    );
+      const achievementsCount = await prisma.achievement.count();
+      expect(achievementsCount).toBeGreaterThanOrEqual(4);
+    }, 25000);
   });
 });

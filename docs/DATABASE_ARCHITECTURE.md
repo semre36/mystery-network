@@ -207,6 +207,7 @@ flowchart LR
 
 - **Runtime Queries (`DATABASE_URL`)**: Connects to Neon's PgBouncer pooler (`-pooler.neon.tech:6543`). Handles high-concurrency serverless function requests without exhausting PostgreSQL connection limits.
 - **Prisma Migrations (`DIRECT_URL`)**: Connects directly to the compute instance (`.neon.tech:5432`). Required for Prisma migrate commands because connection poolers do not support transaction-level DDL locks.
+- **Auto-Suspend Handling**: Append `&connect_timeout=30` to both connection strings. Because Neon's serverless compute scales to zero during idle periods, setting a 30-second connection timeout allows the compute instance adequate time to awaken from cold standby without triggering Prisma `P1001` timeout errors.
 
 ---
 
@@ -216,8 +217,8 @@ flowchart LR
 
 1. Configure credentials in `.env.local` or `.env`:
    ```bash
-   DATABASE_URL="postgresql://user:password@ep-cool-app-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require&pgbouncer=true"
-   DIRECT_URL="postgresql://user:password@ep-cool-app.eu-central-1.aws.neon.tech/neondb?sslmode=require"
+   DATABASE_URL="postgresql://user:password@ep-cool-app-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require&connect_timeout=30"
+   DIRECT_URL="postgresql://user:password@ep-cool-app.eu-central-1.aws.neon.tech/neondb?sslmode=require&connect_timeout=30"
    ```
 2. Generate Prisma Client:
    ```bash
