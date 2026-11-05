@@ -1,3 +1,7 @@
+try {
+  process.loadEnvFile?.();
+} catch {}
+
 import { createBot } from "../src/modules/telegram/bot/bot";
 import { TelegramApiService } from "../src/modules/telegram/services/telegram-api.service";
 
