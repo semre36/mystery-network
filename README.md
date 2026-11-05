@@ -58,6 +58,12 @@ npm run db:generate   # Generate Prisma client
 npm run db:seed       # Run idempotent development seed
 npm run db:migrate    # Run migrations in development (requires DIRECT_URL)
 npm run db:deploy     # Deploy migrations in production (requires DIRECT_URL)
+
+# Telegram Bot Management
+npm run telegram:info         # Inspect active Telegram webhook status
+npm run telegram:set-commands # Register official Telegram bot command menu
+npm run telegram:set-webhook  # Register webhook URL with secret token
+npm run telegram:delete-webhook # Remove active webhook registration
 ```
 
 ---
@@ -69,6 +75,7 @@ Full architectural specifications, security rules, and roadmaps are located in t
 - [Product Overview](./docs/PRODUCT_OVERVIEW.md)
 - [Architecture & Modular Monolith Design](./docs/ARCHITECTURE.md)
 - [Database Architecture & Data Models](./docs/DATABASE_ARCHITECTURE.md)
+- [Telegram Bot Architecture & Guide](./docs/TELEGRAM_BOT.md)
 - [Development Guidelines](./docs/DEVELOPMENT_GUIDELINES.md)
 - [Security Standards](./docs/SECURITY_STANDARDS.md)
 - [Project Structure & Directory Map](./docs/PROJECT_STRUCTURE.md)
@@ -79,5 +86,7 @@ Full architectural specifications, security rules, and roadmaps are located in t
 ## Verification & Status
 
 - **Phase 01: Project Foundation** — Completed.
-- **Phase 02: Database Architecture & Prisma** — Completed (Schema, Client, Migrations, Seed & Live Neon Verified).
+- **Phase 02: Database Architecture & Prisma** — Completed.
+- **Phase 03: Telegram Bot Integration** — Completed (Bot, Commands, Webhook Route & Tests Verified).
 - Health Endpoint: `GET /api/health`
+- Telegram Webhook: `POST /api/telegram/webhook`

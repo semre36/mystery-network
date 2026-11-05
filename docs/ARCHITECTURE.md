@@ -54,7 +54,7 @@ flowchart TD
 
     subgraph External["External Infrastructure"]
         NEON["Neon PostgreSQL (Active Setup)"]
-        TG_API["Telegram Bot API (Phase 03)"]
+        TG_API["Telegram Bot API (Phase 03 - Implemented)"]
         REDIS["Redis Cache / PubSub (Future)"]
         S3["Object Storage / Evidence Files (Future)"]
     end
@@ -108,5 +108,5 @@ flowchart TD
 ## 6. Integration Points
 
 - **Neon PostgreSQL & Prisma ORM (Phase 02 - Implemented)**: Centralized connection pooling (`DATABASE_URL`) and direct migration connectivity (`DIRECT_URL`) with singleton client in `src/server/infrastructure/database`. Full details in [DATABASE_ARCHITECTURE.md](./DATABASE_ARCHITECTURE.md).
-- **Telegram Bot Webhooks & Polling (Phase 03)**: Handled via secure webhook route handlers (`src/app/api/telegram/webhook/route.ts`).
+- **Telegram Bot Webhooks & grammY (Phase 03 - Implemented)**: Official bot integration for `@mysterynetworkbot` handled via secure webhook route handler (`src/app/api/telegram/webhook/route.ts`) with constant-time secret token validation. Full details in [TELEGRAM_BOT.md](./TELEGRAM_BOT.md).
 - **Telegram WebApp Authenticator (Phase 04)**: Cryptographic signature verification against the bot token inside `src/modules/authentication`.

@@ -16,7 +16,11 @@
     "db:generate": "prisma generate",
     "db:seed": "prisma db seed",
     "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy"
+    "db:deploy": "prisma migrate deploy",
+    "telegram:info": "tsx scripts/telegram-setup.ts info",
+    "telegram:set-commands": "tsx scripts/telegram-setup.ts set-commands",
+    "telegram:set-webhook": "tsx scripts/telegram-setup.ts set-webhook",
+    "telegram:delete-webhook": "tsx scripts/telegram-setup.ts delete-webhook"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -24,6 +28,7 @@
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "clsx": "^2.1.1",
+    "grammy": "^1.46.0",
     "lucide-react": "^1.69.0",
     "next": "^16.4.5",
     "react": "^19.3.1",

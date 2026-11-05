@@ -18,8 +18,11 @@ mystery-network/
 │   │   ├── error.tsx           # Global uncaught error boundary
 │   │   ├── not-found.tsx       # Detective-themed 404 handler
 │   │   └── api/
-│   │       └── health/
-│   │           └── route.ts    # Liveness check endpoint (GET /api/health)
+│   │       ├── health/
+│   │       │   └── route.ts    # Liveness check endpoint (GET /api/health)
+│   │       └── telegram/
+│   │           └── webhook/
+│   │               └── route.ts # Secure Telegram Bot API Webhook (POST /api/telegram/webhook)
 │   │
 │   ├── components/             # Reusable UI component library
 │   │   ├── ui/                 # Headless & design primitives (buttons, dialogs, inputs)
@@ -27,6 +30,7 @@ mystery-network/
 │   │   └── layouts/            # Page templates (detective dashboard frame, dossier view)
 │   │
 │   ├── modules/                # Modular Monolith Domain Modules
+│   │   ├── telegram/           # Phase 03: Telegram Bot commands, keyboards, handlers, services
 │   │   ├── authentication/     # Phase 04: Telegram WebApp auth & session issuance
 │   │   ├── players/            # Phase 05: Investigator profiles, stats, settings
 │   │   ├── cases/              # Phase 06: Mystery case definitions, acts, narrative episodes
@@ -65,6 +69,7 @@ mystery-network/
 │   ├── PRODUCT_OVERVIEW.md     # Vision, target audience, gameplay loops
 │   ├── ARCHITECTURE.md         # Modular monolith architecture & design decisions
 │   ├── DATABASE_ARCHITECTURE.md# Complete database specification, ER diagram, index strategy
+│   ├── TELEGRAM_BOT.md         # Telegram Bot architecture, webhook security, CLI scripts
 │   ├── DEVELOPMENT_GUIDELINES.md # Code standards, TypeScript rules, test patterns
 │   ├── SECURITY_STANDARDS.md   # Secret isolation, HMAC verification, auth boundaries
 │   ├── PROJECT_STRUCTURE.md    # Directory layout & domain mapping (this file)
@@ -73,7 +78,8 @@ mystery-network/
 ├── tests/                      # Automated Test Suites
 │   ├── health.test.ts          # API liveness & response schema test
 │   ├── foundation.test.ts      # Core utility, error, and logger unit tests
-│   └── database.test.ts        # Database client singleton, models, and validation tests
+│   ├── database.test.ts        # Database client singleton, models, and validation tests
+│   └── telegram.test.ts        # Telegram commands, deep-link parsing, and webhook tests
 │
 ├── .env.example                # Documented environment template
 ├── .gitignore                  # Git exclusions for secrets, builds, and node_modules

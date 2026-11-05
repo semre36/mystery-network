@@ -7,6 +7,8 @@
   - `.env.example` provides the documented template without real credentials.
   - `.env.local` contains machine-local secrets and is strictly ignored in `.gitignore`.
 - **Public vs. Private Variables**: Only variables explicitly prefixed with `NEXT_PUBLIC_` are exposed to the client bundle. All credentials, database connection strings, and bot tokens must remain un-prefixed and server-only.
+- **Telegram Token Protection**: `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET` are strictly confidential server-side secrets. They must never be printed to application logs or returned in error payloads.
+- **Webhook Constant-Time Comparison**: Incoming `X-Telegram-Bot-Api-Secret-Token` headers are verified using `crypto.timingSafeEqual` to prevent timing attacks. Requests failing secret verification are rejected immediately with HTTP 401.
 
 ---
 
