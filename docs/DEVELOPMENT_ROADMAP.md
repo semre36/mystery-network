@@ -11,7 +11,7 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 | **01** | **Project Foundation**             |                                               **Completed**                                               | Modular Monolith scaffolding, strict TypeScript, Tailwind CSS, health check, baseline tests, architecture docs. |
 | **02** | **Database Architecture & Prisma** |                                               **Completed**                                               | Neon PostgreSQL, Prisma schema, relational data modeling, migrations, connection pooling.                       |
 | **03** | **Telegram Bot Integration**       | **Completed (Bot Implementation & Webhook Architecture Ready, Live Webhook Setup Ready for Fresh Token)** | Telegram Bot API setup, webhook lifecycle, bot commands, onboarding links.                                      |
-| **04** | Telegram Authentication            |                                                  Pending                                                  | HMAC-SHA256 initData cryptographic verification, session issuance, secure auth tokens.                          |
+| **04** | **Telegram Authentication**        |                                               **Completed**                                               | HMAC-SHA256 initData cryptographic verification, session issuance, secure auth tokens.                          |
 | **05** | Player Interface                   |                                                  Pending                                                  | Investigator dossier, profile setup, preferences, active case status view.                                      |
 | **06** | Case Management                    |                                                  Pending                                                  | Case catalog, difficulty ratings, acts, episodic releases, immutable case definitions.                          |
 | **07** | Investigation Engine               |                                                  Pending                                                  | Session state machine, investigation timelines, stage transitions, progress tracking.                           |
@@ -90,3 +90,29 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 - [x] No premature Phase 04+ authentication or gameplay features implemented.
 - [ ] Fresh bot token generated from @BotFather and configured in private `.env.local` by developer.
 - [ ] Public HTTPS webhook registered with Telegram Bot API (`npm run telegram:set-webhook`).
+
+---
+
+## Phase 04: Telegram Authentication — Acceptance Checklist
+
+- [x] Server-side cryptographic verification of Telegram Mini App `initData` implemented via `@tma.js/init-data-node`.
+- [x] Signature verification enforces HMAC-SHA256 with the bot token.
+- [x] Freshness verification enforces maximum age of 300 seconds (`EXPIRED_INIT_DATA`).
+- [x] Clock-skew tolerance enforces rejection of timestamps > 10s in the future (`FUTURE_AUTH_DATE`).
+- [x] Zero client-side identity trust — identity strictly extracted from cryptographically verified payload.
+- [x] 64-bit Telegram ID safety implemented (`SafeUserProfile` serializes BigInt to string to eliminate JS precision truncation).
+- [x] Isolated database transaction creates `User` + `PlayerProfile` for first-time players.
+- [x] Auto-generated distinct codename (`AGENT_<USERNAME>` or fallback) with collision resolution.
+- [x] Returning player data integrity guaranteed: existing codenames, levels, XP, and ranks are never overwritten or reset.
+- [x] Server-side session management model `AuthSession` migrated to live Neon database (`20261105203615_add_auth_sessions`).
+- [x] 256-bit cryptographically secure session tokens generated (`crypto.randomBytes(32)`).
+- [x] Persistent session tokens stored solely as SHA-256 digests in database (`tokenHash`).
+- [x] Hardened HTTP-only session cookies configured (`SameSite=None; Secure` in production for Telegram iframe/WebView compatibility).
+- [x] Session revocation implemented for individual sessions and all active sessions of a user.
+- [x] Authentication API endpoints implemented: `POST /api/auth/telegram`, `GET /api/auth/session`, `POST /api/auth/logout`.
+- [x] Centralized server-side route guards implemented (`getCurrentSession`, `getCurrentUser`, `requireAuthenticatedUser`).
+- [x] Official Telegram WebApp SDK script mounted on layout (`https://telegram.org/js/telegram-web-app.js`).
+- [x] Interactive client authentication widget implemented (`TelegramAuthWidget`) handling loading, authenticated, error, and outside-telegram states.
+- [x] Comprehensive test suite implemented (`tests/auth.test.ts` — 31 tests; 78 total tests passing across all suites).
+- [x] Complete architecture and security documentation authored (`docs/TELEGRAM_AUTHENTICATION.md`).
+- [x] Zero regressions across Phase 01–03 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.

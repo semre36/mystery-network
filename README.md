@@ -76,6 +76,7 @@ Full architectural specifications, security rules, and roadmaps are located in t
 - [Architecture & Modular Monolith Design](./docs/ARCHITECTURE.md)
 - [Database Architecture & Data Models](./docs/DATABASE_ARCHITECTURE.md)
 - [Telegram Bot Architecture & Guide](./docs/TELEGRAM_BOT.md)
+- [Telegram Mini App Authentication & Sessions](./docs/TELEGRAM_AUTHENTICATION.md)
 - [Development Guidelines](./docs/DEVELOPMENT_GUIDELINES.md)
 - [Security Standards](./docs/SECURITY_STANDARDS.md)
 - [Project Structure & Directory Map](./docs/PROJECT_STRUCTURE.md)
@@ -88,5 +89,7 @@ Full architectural specifications, security rules, and roadmaps are located in t
 - **Phase 01: Project Foundation** — Completed.
 - **Phase 02: Database Architecture & Prisma** — Completed.
 - **Phase 03: Telegram Bot Integration** — Completed (Bot, Commands, Webhook Route & Tests Verified).
+- **Phase 04: Telegram Mini App Authentication** — Completed (HMAC-SHA256 InitData Verification, AuthSession Management, Transactional Provisioning, HTTP-Only Cookies).
 - Health Endpoint: `GET /api/health`
 - Telegram Webhook: `POST /api/telegram/webhook`
+- Auth Endpoints: `POST /api/auth/telegram`, `GET /api/auth/session`, `POST /api/auth/logout`

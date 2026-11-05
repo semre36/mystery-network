@@ -173,17 +173,39 @@ model User {
   id               String          @id @default(uuid()) @db.Uuid
   telegramId       BigInt          @unique
   telegramUsername String?
+  firstName        String?
+  lastName         String?
+  languageCode     String?
   status           UserStatus      @default(ACTIVE)
   lastActiveAt     DateTime?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
   profile          PlayerProfile?
+  sessions         AuthSession[]
   auditLogs        AdminAuditLog[]
 
   @@index([telegramId])
   @@index([status])
   @@map("users")
+}
+
+model AuthSession {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @db.Uuid
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash      String    @unique
+  userAgent      String?
+  ipAddress      String?
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime
+  lastActivityAt DateTime  @default(now())
+  revokedAt      DateTime?
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@map("auth_sessions")
 }
 
 model PlayerProfile {

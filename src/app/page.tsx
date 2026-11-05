@@ -1,5 +1,6 @@
 import { Shield } from "lucide-react";
 import { APP_NAME, APP_TAGLINE, APP_MOTTO, APP_STATUS_MESSAGE } from "@/lib/constants/app";
+import { TelegramAuthWidget } from "@/components/auth/telegram-auth-widget";
 
 export default function HomePage() {
   return (
@@ -29,12 +30,17 @@ export default function HomePage() {
             </p>
           </div>
 
+          {/* Authentication Status / Mini App Integration */}
+          <div className="mb-8">
+            <TelegramAuthWidget />
+          </div>
+
           {/* System Status Statement */}
           <div className="border-t border-[#1a233a] pt-6 space-y-3">
             <div className="flex items-center gap-2">
               <span className="inline-block w-2 h-2 rounded-full bg-blue-500" />
               <span className="text-xs font-mono uppercase tracking-wider text-slate-400">
-                Phase 01 — Project Foundation Active
+                Phase 04 — Telegram Mini App Authentication Active
               </span>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">{APP_STATUS_MESSAGE}</p>

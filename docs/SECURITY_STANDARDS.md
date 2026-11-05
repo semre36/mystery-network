@@ -68,3 +68,23 @@
 - **Redaction & Concealment**:
   - Clue solutions and hidden metadata must never be transmitted in API payloads before being officially unlocked in the player's investigation session.
   - Structured logs automatically scrub fields containing keys matching `token`, `password`, `secret`, `authorization`, and `evidence`.
+
+---
+
+## 8. Telegram Mini App Authentication & Session Security (Phase 04)
+
+- **Zero Client Trust**:
+  - Raw `Telegram.WebApp.initData` is validated strictly on the server using HMAC-SHA256 derived from `TELEGRAM_BOT_TOKEN`.
+  - Client-supplied identity, username, or IDs are never trusted directly.
+- **Freshness & Replay Mitigation**:
+  - `auth_date` must not exceed 300 seconds (5 minutes) in age (`INIT_DATA_MAX_AGE_SECONDS`).
+  - `auth_date` is validated with a 10-second forward clock-skew tolerance (`MAX_CLOCK_SKEW_SECONDS`) to reject future timestamp spoofing.
+- **Server-Side Session Management**:
+  - Sessions are generated with 256 bits of cryptographically secure entropy (`crypto.randomBytes(32)`).
+  - Only SHA-256 digests (`tokenHash`) are stored in the PostgreSQL `AuthSession` table.
+  - Raw session tokens are never persisted in the database or emitted in server logs.
+- **Hardened Cookie Transport**:
+  - Session cookies (`mn_session`) are marked `HttpOnly` and scoped to `Path=/`.
+  - In production, cookies enforce `SameSite=None; Secure` to ensure persistent cookie propagation within Telegram Web's `<iframe>` and mobile WebViews.
+- **Constant-Time Verification**:
+  - Token digest comparisons utilize `crypto.timingSafeEqual` to eliminate timing side-channel attacks.

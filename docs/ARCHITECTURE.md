@@ -109,4 +109,4 @@ flowchart TD
 
 - **Neon PostgreSQL & Prisma ORM (Phase 02 - Implemented)**: Centralized connection pooling (`DATABASE_URL`) and direct migration connectivity (`DIRECT_URL`) with singleton client in `src/server/infrastructure/database`. Full details in [DATABASE_ARCHITECTURE.md](./DATABASE_ARCHITECTURE.md).
 - **Telegram Bot Webhooks & grammY (Phase 03 - Implemented)**: Official bot integration for `@mysterynetworkbot` handled via secure webhook route handler (`src/app/api/telegram/webhook/route.ts`) with constant-time secret token validation. Full details in [TELEGRAM_BOT.md](./TELEGRAM_BOT.md).
-- **Telegram WebApp Authenticator (Phase 04)**: Cryptographic signature verification against the bot token inside `src/modules/authentication`.
+- **Telegram Mini App Authentication (Phase 04 - Implemented)**: HMAC-SHA256 signature verification of `initData`, 300s freshness, clock-skew prevention, transactional player provisioning, and 256-bit server-side session management (`AuthSession`) with hardened HTTP-only cookies in `src/modules/authentication`. Full details in [TELEGRAM_AUTHENTICATION.md](./TELEGRAM_AUTHENTICATION.md).
