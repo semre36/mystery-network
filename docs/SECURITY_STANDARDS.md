@@ -43,7 +43,9 @@
 ## 5. Input Validation & Sanitization
 
 - **Perimeter Defense**: All external inputs (request bodies, query parameters, route params) must be validated with Zod schemas.
-- **SQL / Injection Defense**: All database queries in Phase 02+ must use parameterized queries via Prisma ORM; raw SQL strings are strictly prohibited.
+- **SQL / Injection Defense**: All database queries use parameterized queries via Prisma ORM; raw SQL strings are strictly prohibited.
+- **Solution Concealment**: Puzzle solutions are stored exclusively as cryptographic hashes (`Puzzle.solutionHash`). Raw answers must never be persisted or queried into client bundles.
+- **Database Credential Protection**: Both `DATABASE_URL` (pooled) and `DIRECT_URL` (direct) are server-only environment variables and must never be prefixed with `NEXT_PUBLIC_`.
 - **XSS Prevention**: User-generated content (e.g., detective notes, squad chat messages) must be sanitized before rendering.
 
 ---

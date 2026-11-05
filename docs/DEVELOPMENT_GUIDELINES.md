@@ -70,3 +70,13 @@
   - `docs(arch): update module boundary specifications`
   - `chore(deps): update nextjs to 16.4.5`
 - **Clean Diffs**: Format all files before committing via `npm run format`.
+
+---
+
+## 7. Database & Prisma Rules
+
+- **Singleton Usage**: Always import the Prisma Client instance from `@/server/infrastructure/database`. Never instantiate `new PrismaClient()` directly in application code.
+- **Server Isolation**: Database access must remain strictly in server modules (`src/server/*` or server route handlers). Never import database clients in React Client Components (`"use client"`).
+- **Explicit Projections**: Use Prisma `select` projections to fetch only required fields. Never return raw database records containing `solutionHash`, `metadata`, or private token digests.
+- **Transactions for Multi-Record Operations**: Use `prisma.$transaction()` for interdependent writes (e.g. creating an investigation and its participants, or deducting clues and awarding XP).
+- **Migration Hygiene**: Never edit existing applied migration files manually. Always generate migrations via `npm run db:migrate`.

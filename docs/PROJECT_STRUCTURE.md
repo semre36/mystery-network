@@ -48,7 +48,8 @@ mystery-network/
 │   │   └── validation/         # Common validation schemas & cross-domain validators
 │   │
 │   ├── server/                 # Server-Only Infrastructure & Security
-│   │   ├── infrastructure/     # Database client (Prisma - Phase 02), cache adapters
+│   │   ├── infrastructure/     # Infrastructure clients & adapters
+│   │   │   └── database/       # Prisma Client singleton & connection management
 │   │   ├── services/           # Cross-module server orchestration services
 │   │   └── security/           # Rate limiting guards, cryptographic helpers, RBAC
 │   │
@@ -56,9 +57,14 @@ mystery-network/
 │   ├── types/                  # Shared global TypeScript definitions
 │   └── styles/                 # Additional style modules & theme overrides
 │
+├── prisma/                     # Database Schema & Migrations
+│   ├── schema.prisma           # Prisma 6 schema targeting Neon PostgreSQL
+│   └── seed.ts                 # Idempotent development & benchmark seed script
+│
 ├── docs/                       # Project Documentation
 │   ├── PRODUCT_OVERVIEW.md     # Vision, target audience, gameplay loops
 │   ├── ARCHITECTURE.md         # Modular monolith architecture & design decisions
+│   ├── DATABASE_ARCHITECTURE.md# Complete database specification, ER diagram, index strategy
 │   ├── DEVELOPMENT_GUIDELINES.md # Code standards, TypeScript rules, test patterns
 │   ├── SECURITY_STANDARDS.md   # Secret isolation, HMAC verification, auth boundaries
 │   ├── PROJECT_STRUCTURE.md    # Directory layout & domain mapping (this file)
@@ -66,7 +72,8 @@ mystery-network/
 │
 ├── tests/                      # Automated Test Suites
 │   ├── health.test.ts          # API liveness & response schema test
-│   └── foundation.test.ts      # Core utility, error, and logger unit tests
+│   ├── foundation.test.ts      # Core utility, error, and logger unit tests
+│   └── database.test.ts        # Database client singleton, models, and validation tests
 │
 ├── .env.example                # Documented environment template
 ├── .gitignore                  # Git exclusions for secrets, builds, and node_modules
@@ -75,17 +82,19 @@ mystery-network/
 ├── next.config.ts              # Next.js build and runtime configuration
 ├── package.json                # Project dependencies and lifecycle scripts
 ├── tsconfig.json               # Strict TypeScript configuration
-├── vitest.config.ts            # Vitest unit test configuration
+├── vitest.config.mts           # Vitest unit test configuration
 └── README.md                   # Repository overview and getting started guide
 ```
 
 ---
 
-## Where Future Features Belong
+## Where Features Belong
 
-| Future Feature                         | Target Directory                                                          |
+| Domain / Feature                       | Location & Target Directory                                               |
 | :------------------------------------- | :------------------------------------------------------------------------ |
-| **Prisma Schema & Client**             | `prisma/` and `src/server/infrastructure/db.ts`                           |
+| **Prisma Schema & Migrations**         | `prisma/schema.prisma` and `prisma/migrations/`                           |
+| **Database Client Singleton**          | `src/server/infrastructure/database/index.ts`                             |
+| **Database Seeding**                   | `prisma/seed.ts`                                                          |
 | **Telegram Bot Handlers**              | `src/server/infrastructure/telegram/` and `src/app/api/telegram/webhook/` |
 | **Telegram InitData Validation**       | `src/modules/authentication/services/telegram-auth.ts`                    |
 | **Investigator Dossier & Stats**       | `src/modules/players/` and `src/app/investigator/`                        |

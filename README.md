@@ -51,6 +51,13 @@ npm run build
 
 # Start production server
 npm run start
+
+# Database Management (Prisma)
+npm run db:validate   # Validate Prisma schema
+npm run db:generate   # Generate Prisma client
+npm run db:seed       # Run idempotent development seed
+npm run db:migrate    # Run migrations in development (requires DIRECT_URL)
+npm run db:deploy     # Deploy migrations in production (requires DIRECT_URL)
 ```
 
 ---
@@ -61,6 +68,7 @@ Full architectural specifications, security rules, and roadmaps are located in t
 
 - [Product Overview](./docs/PRODUCT_OVERVIEW.md)
 - [Architecture & Modular Monolith Design](./docs/ARCHITECTURE.md)
+- [Database Architecture & Data Models](./docs/DATABASE_ARCHITECTURE.md)
 - [Development Guidelines](./docs/DEVELOPMENT_GUIDELINES.md)
 - [Security Standards](./docs/SECURITY_STANDARDS.md)
 - [Project Structure & Directory Map](./docs/PROJECT_STRUCTURE.md)
@@ -70,5 +78,6 @@ Full architectural specifications, security rules, and roadmaps are located in t
 
 ## Verification & Status
 
-- **Phase 01: Project Foundation** — Active / Ready for Verification.
+- **Phase 01: Project Foundation** — Completed.
+- **Phase 02: Database Architecture & Prisma** — Implemented (Schema, Client, Seed & Local Tests Verified; Remote Migration Pending Credentials).
 - Health Endpoint: `GET /api/health`

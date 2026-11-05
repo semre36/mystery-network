@@ -1,0 +1,732 @@
+// ==============================================================================
+// MYSTERY NETWORK — Production Prisma Schema
+// Target Provider: Neon PostgreSQL
+// ==============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ------------------------------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------------------------------
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+  DELETED
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CaseDifficulty {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+enum PlayMode {
+  SOLO
+  COOPERATIVE
+}
+
+enum InvestigationStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SOLVED
+  FAILED
+  ABANDONED
+}
+
+enum ParticipantStatus {
+  ACTIVE
+  INACTIVE
+  LEFT
+}
+
+enum ChapterProgressStatus {
+  LOCKED
+  UNLOCKED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum ClueType {
+  DOCUMENT
+  FORENSIC_ITEM
+  AUDIO_LOG
+  TESTIMONY
+  PHOTOGRAPH
+  CIPHER_FRAGMENT
+}
+
+enum ClueStrategy {
+  ALL_PLAYERS
+  ASYMMETRIC_EXCLUSIVE
+  ROLE_BASED
+  RANDOM
+  FOUND_BY_DISCOVERY
+}
+
+enum AssignmentStatus {
+  UNSEEN
+  VIEWED
+  SHARED
+}
+
+enum AssetType {
+  IMAGE
+  AUDIO
+  PDF
+  VIDEO
+  BINARY
+}
+
+enum PuzzleType {
+  CIPHER
+  LOGIC_GRID
+  PATTERN_MATCH
+  CROSS_REFERENCE
+  DECODER_WHEEL
+  AUDIO_SPECTROGRAM
+}
+
+enum AttemptStatus {
+  CORRECT
+  INCORRECT
+  PARTIAL
+  TIMEOUT
+}
+
+enum TeamStatus {
+  ACTIVE
+  DISBANDED
+  ARCHIVED
+}
+
+enum TeamRole {
+  LEAD_INVESTIGATOR
+  DETECTIVE
+  SPECIALIST
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  LEFT
+  REMOVED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  EVALUATED
+  REJECTED
+}
+
+enum EvaluationResult {
+  SOLVED_PERFECT
+  SOLVED_PARTIAL
+  INCORRECT
+  COLD_CASE
+}
+
+enum AchievementCategory {
+  DEDUCTION
+  PUZZLES
+  TEAMWORK
+  SPECIAL_EVENTS
+}
+
+enum NotificationType {
+  CLUE_RECEIVED
+  EVIDENCE_SHARED
+  SQUAD_INVITE
+  CASE_UPDATE
+  ACHIEVEMENT_UNLOCKED
+  SYSTEM_ALERT
+}
+
+// ------------------------------------------------------------------------------
+// DOMAIN A: IDENTITY & PLAYER MANAGEMENT
+// ------------------------------------------------------------------------------
+
+model User {
+  id               String          @id @default(uuid()) @db.Uuid
+  telegramId       BigInt          @unique
+  telegramUsername String?
+  status           UserStatus      @default(ACTIVE)
+  lastActiveAt     DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  profile          PlayerProfile?
+  auditLogs        AdminAuditLog[]
+
+  @@index([telegramId])
+  @@index([status])
+  @@map("users")
+}
+
+model PlayerProfile {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @unique @db.Uuid
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codename    String   @unique
+  displayName String
+  avatarUrl   String?
+  xp          Int      @default(0)
+  level       Int      @default(1)
+  preferences Json?    @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  investigations      InvestigationParticipant[]
+  clueAssignments     ClueAssignment[]
+  sharedEvidenceFrom  EvidenceShare[]            @relation("SharedEvidenceFrom")
+  sharedEvidenceTo    EvidenceShare[]            @relation("SharedEvidenceTo")
+  puzzleAttempts      PuzzleAttempt[]
+  ownedTeams          Team[]                     @relation("TeamOwner")
+  teamMemberships     TeamMembership[]
+  createdInvitations  TeamInvitation[]           @relation("InvitationCreator")
+  caseSubmissions     CaseSubmission[]
+  xpTransactions      XPTransaction[]
+  achievements        UserAchievement[]
+  notifications       Notification[]
+
+  @@index([codename])
+  @@index([xp(sort: Desc)])
+  @@index([level])
+  @@map("player_profiles")
+}
+
+// ------------------------------------------------------------------------------
+// DOMAIN B: CAMPAIGN & CASE CONTENT
+// ------------------------------------------------------------------------------
+
+model Campaign {
+  id            String        @id @default(uuid()) @db.Uuid
+  slug          String        @unique
+  title         String
+  description   String        @db.Text
+  coverImageUrl String?
+  status        ContentStatus @default(DRAFT)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  cases         Case[]
+
+  @@index([status])
+  @@index([slug])
+  @@map("campaigns")
+}
+
+model Case {
+  id                       String         @id @default(uuid()) @db.Uuid
+  caseCode                 String         @unique
+  campaignId               String?        @db.Uuid
+  campaign                 Campaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  title                    String
+  description              String         @db.Text
+  difficulty               CaseDifficulty @default(MEDIUM)
+  estimatedDurationMinutes Int
+  minPlayers               Int            @default(1)
+  maxPlayers               Int            @default(4)
+  supportedPlayModes       PlayMode[]
+  status                   ContentStatus  @default(DRAFT)
+  publishedAt              DateTime?
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+
+  chapters                 CaseChapter[]
+  characters               CaseCharacter[]
+  clues                    Clue[]
+  puzzles                  Puzzle[]
+  investigations           Investigation[]
+
+  @@index([status])
+  @@index([caseCode])
+  @@index([difficulty])
+  @@index([campaignId])
+  @@map("cases")
+}
+
+model CaseChapter {
+  id           String        @id @default(uuid()) @db.Uuid
+  caseId       String        @db.Uuid
+  case         Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  chapterOrder Int
+  title        String
+  description  String        @db.Text
+  unlockConfig Json?
+  status       ContentStatus @default(DRAFT)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  clues                 Clue[]
+  puzzles               Puzzle[]
+  investigationProgress InvestigationProgress[]
+
+  @@unique([caseId, chapterOrder])
+  @@index([caseId])
+  @@index([status])
+  @@map("case_chapters")
+}
+
+model CaseCharacter {
+  id          String   @id @default(uuid()) @db.Uuid
+  caseId      String   @db.Uuid
+  case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  name        String
+  description String   @db.Text
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([caseId])
+  @@map("case_characters")
+}
+
+// ------------------------------------------------------------------------------
+// DOMAIN C: INVESTIGATION ENGINE
+// ------------------------------------------------------------------------------
+
+model Investigation {
+  id          String              @id @default(uuid()) @db.Uuid
+  caseId      String              @db.Uuid
+  case        Case                @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  teamId      String?             @db.Uuid
+  team        Team?               @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  status      InvestigationStatus @default(IN_PROGRESS)
+  playMode    PlayMode            @default(SOLO)
+  startedAt   DateTime            @default(now())
+  completedAt DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  participants    InvestigationParticipant[]
+  progress        InvestigationProgress[]
+  clueAssignments ClueAssignment[]
+  evidenceShares  EvidenceShare[]
+  puzzleAttempts  PuzzleAttempt[]
+  submissions     CaseSubmission[]
+  xpTransactions  XPTransaction[]
+
+  @@index([caseId])
+  @@index([teamId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("investigations")
+}
+
+model InvestigationParticipant {
+  id              String            @id @default(uuid()) @db.Uuid
+  investigationId String            @db.Uuid
+  investigation   Investigation     @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  playerId        String            @db.Uuid
+  player          PlayerProfile     @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  status          ParticipantStatus @default(ACTIVE)
+  joinedAt        DateTime          @default(now())
+
+  @@unique([investigationId, playerId])
+  @@index([playerId])
+  @@index([investigationId])
+  @@index([status])
+  @@map("investigation_participants")
+}
+
+model InvestigationProgress {
+  id              String                @id @default(uuid()) @db.Uuid
+  investigationId String                @db.Uuid
+  investigation   Investigation         @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  chapterId       String                @db.Uuid
+  chapter         CaseChapter           @relation(fields: [chapterId], references: [id], onDelete: Restrict)
+  status          ChapterProgressStatus @default(LOCKED)
+  unlockedAt      DateTime?
+  completedAt     DateTime?
+
+  @@unique([investigationId, chapterId])
+  @@index([investigationId])
+  @@index([chapterId])
+  @@index([status])
+  @@map("investigation_progress")
+}
+
+// ------------------------------------------------------------------------------
+// DOMAIN D: EVIDENCE & CLUE MANAGEMENT
+// ------------------------------------------------------------------------------
+
+model Clue {
+  id                 String        @id @default(uuid()) @db.Uuid
+  caseId             String        @db.Uuid
+  case               Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  chapterId          String?       @db.Uuid
+  chapter            CaseChapter?  @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  title              String
+  description        String        @db.Text
+  content            Json
+  clueType           ClueType
+  assignmentStrategy ClueStrategy  @default(RANDOM)
+  visibilityConfig   Json?
+  isShareable        Boolean       @default(true)
+  status             ContentStatus @default(DRAFT)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  assignments ClueAssignment[]
+  assets      EvidenceAsset[]
+
+  @@index([caseId])
+  @@index([chapterId])
+  @@index([clueType])
+  @@index([status])
+  @@map("clues")
+}
+
+model ClueAssignment {
+  id              String           @id @default(uuid()) @db.Uuid
+  investigationId String           @db.Uuid
+  investigation   Investigation    @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  clueId          String           @db.Uuid
+  clue            Clue             @relation(fields: [clueId], references: [id], onDelete: Restrict)
+  playerId        String           @db.Uuid
+  player          PlayerProfile    @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  status          AssignmentStatus @default(UNSEEN)
+  assignedAt      DateTime         @default(now())
+  viewedAt        DateTime?
+
+  shares EvidenceShare[]
+
+  @@unique([investigationId, clueId, playerId])
+  @@index([investigationId, playerId])
+  @@index([clueId])
+  @@index([status])
+  @@map("clue_assignments")
+}
+
+model EvidenceShare {
+  id                String         @id @default(uuid()) @db.Uuid
+  investigationId   String         @db.Uuid
+  investigation     Investigation  @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  clueAssignmentId  String         @db.Uuid
+  clueAssignment    ClueAssignment @relation(fields: [clueAssignmentId], references: [id], onDelete: Cascade)
+  sharingPlayerId   String         @db.Uuid
+  sharingPlayer     PlayerProfile  @relation("SharedEvidenceFrom", fields: [sharingPlayerId], references: [id], onDelete: Restrict)
+  recipientPlayerId String?        @db.Uuid
+  recipientPlayer   PlayerProfile? @relation("SharedEvidenceTo", fields: [recipientPlayerId], references: [id], onDelete: Restrict)
+  sharedAt          DateTime       @default(now())
+
+  @@index([investigationId])
+  @@index([clueAssignmentId])
+  @@index([sharingPlayerId])
+  @@index([recipientPlayerId])
+  @@map("evidence_shares")
+}
+
+model EvidenceAsset {
+  id               String    @id @default(uuid()) @db.Uuid
+  clueId           String?   @db.Uuid
+  clue             Clue?     @relation(fields: [clueId], references: [id], onDelete: SetNull)
+  assetType        AssetType
+  storageObjectKey String    @unique
+  fileName         String
+  mimeType         String
+  fileSizeBytes    BigInt
+  metadata         Json?
+  createdAt        DateTime  @default(now())
+
+  @@index([clueId])
+  @@index([assetType])
+  @@map("evidence_assets")
+}
+
+// ------------------------------------------------------------------------------
+// DOMAIN E: PUZZLE SYSTEM
+// ------------------------------------------------------------------------------
+
+model Puzzle {
+  id               String         @id @default(uuid()) @db.Uuid
+  caseId           String         @db.Uuid
+  case             Case           @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  chapterId        String?        @db.Uuid
+  chapter          CaseChapter?   @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  title            String
+  description      String         @db.Text
+  puzzleType       PuzzleType
+  difficulty       CaseDifficulty @default(MEDIUM)
+  configuration    Json
+  solutionHash     String
+  unlockConditions Json?
+  status           ContentStatus  @default(DRAFT)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  attempts PuzzleAttempt[]
+
+  @@index([caseId])
+  @@index([chapterId])
+  @@index([puzzleType])
+  @@index([status])
+  @@map("puzzles")
+}
+
+model PuzzleAttempt {
+  id              String        @id @default(uuid()) @db.Uuid
+  puzzleId        String        @db.Uuid
+  puzzle          Puzzle        @relation(fields: [puzzleId], references: [id], onDelete: Restrict)
+  investigationId String        @db.Uuid
+  investigation   Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  playerId        String        @db.Uuid
+  player          PlayerProfile @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  submittedAnswer String        @db.Text
+  resultStatus    AttemptStatus
+  attemptedAt     DateTime      @default(now())
+  evaluatedAt     DateTime      @default(now())
+
+  @@index([puzzleId])
+  @@index([investigationId])
+  @@index([playerId])
+  @@index([attemptedAt])
+  @@map("puzzle_attempts")
+}
+
+// ------------------------------------------------------------------------------
+// DOMAIN F: TEAM COLLABORATION
+// ------------------------------------------------------------------------------
+
+model Team {
+  id         String     @id @default(uuid()) @db.Uuid
+  name       String
+  inviteCode String     @unique
+  ownerId    String     @db.Uuid
+  owner      PlayerProfile @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  status     TeamStatus @default(ACTIVE)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  members        TeamMembership[]
+  invitations    TeamInvitation[]
+  investigations Investigation[]
+
+  @@index([inviteCode])
+  @@index([ownerId])
+  @@index([status])
+  @@map("teams")
+}
+
+model TeamMembership {
+  id       String           @id @default(uuid()) @db.Uuid
+  teamId   String           @db.Uuid
+  team     Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  playerId String           @db.Uuid
+  player   PlayerProfile    @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  role     TeamRole         @default(DETECTIVE)
+  status   MembershipStatus @default(ACTIVE)
+  joinedAt DateTime         @default(now())
+
+  @@unique([teamId, playerId])
+  @@index([playerId])
+  @@index([teamId])
+  @@index([status])
+  @@map("team_memberships")
+}
+
+model TeamInvitation {
+  id             String           @id @default(uuid()) @db.Uuid
+  teamId         String           @db.Uuid
+  team           Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  invitationCode String           @unique
+  createdById    String           @db.Uuid
+  createdBy      PlayerProfile    @relation("InvitationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  expiresAt      DateTime
+  status         InvitationStatus @default(PENDING)
+  createdAt      DateTime         @default(now())
+
+  @@index([invitationCode])
+  @@index([teamId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("team_invitations")
+}
+
+// ------------------------------------------------------------------------------
+// DOMAIN G: SUBMISSIONS & EVALUATION
+// ------------------------------------------------------------------------------
+
+model CaseSubmission {
+  id              String           @id @default(uuid()) @db.Uuid
+  investigationId String           @db.Uuid
+  investigation   Investigation    @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  submittedById   String           @db.Uuid
+  submittedBy     PlayerProfile    @relation(fields: [submittedById], references: [id], onDelete: Restrict)
+  answerData      Json
+  status          SubmissionStatus @default(SUBMITTED)
+  submittedAt     DateTime         @default(now())
+
+  evaluation SubmissionEvaluation?
+
+  @@index([investigationId])
+  @@index([submittedById])
+  @@index([status])
+  @@index([submittedAt])
+  @@map("case_submissions")
+}
+
+model SubmissionEvaluation {
+  id           String           @id @default(uuid()) @db.Uuid
+  submissionId String           @unique @db.Uuid
+  submission   CaseSubmission   @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  result       EvaluationResult
+  score        Int
+  feedback     Json
+  evaluatedAt  DateTime         @default(now())
+
+  @@index([result])
+  @@index([score])
+  @@map("submission_evaluations")
+}
+
+// ------------------------------------------------------------------------------
+// DOMAIN H: PLAYER PROGRESSION
+// ------------------------------------------------------------------------------
+
+model XPTransaction {
+  id              String         @id @default(uuid()) @db.Uuid
+  playerId        String         @db.Uuid
+  player          PlayerProfile  @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  amount          Int
+  reason          String
+  investigationId String?        @db.Uuid
+  investigation   Investigation? @relation(fields: [investigationId], references: [id], onDelete: SetNull)
+  createdAt       DateTime       @default(now())
+
+  @@index([playerId, createdAt(sort: Desc)])
+  @@index([investigationId])
+  @@map("xp_transactions")
+}
+
+model Achievement {
+  id          String              @id @default(uuid()) @db.Uuid
+  code        String              @unique
+  title       String
+  description String
+  iconUrl     String?
+  category    AchievementCategory
+  criteria    Json
+  createdAt   DateTime            @default(now())
+
+  unlockedBy UserAchievement[]
+
+  @@index([code])
+  @@index([category])
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String        @id @default(uuid()) @db.Uuid
+  playerId      String        @db.Uuid
+  player        PlayerProfile @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  achievementId String        @db.Uuid
+  achievement   Achievement   @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  unlockedAt    DateTime      @default(now())
+
+  @@unique([playerId, achievementId])
+  @@index([playerId])
+  @@index([achievementId])
+  @@map("user_achievements")
+}
+
+// ------------------------------------------------------------------------------
+// DOMAIN I: NOTIFICATIONS
+// ------------------------------------------------------------------------------
+
+model Notification {
+  id          String           @id @default(uuid()) @db.Uuid
+  playerId    String           @db.Uuid
+  player      PlayerProfile    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  title       String
+  message     String           @db.Text
+  resourceRef Json?
+  isRead      Boolean          @default(false)
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+
+  @@index([playerId, isRead, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+// ------------------------------------------------------------------------------
+// DOMAIN J: ADMINISTRATION & AUDIT
+// ------------------------------------------------------------------------------
+
+model AdminRole {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions AdminRolePermission[]
+
+  @@map("admin_roles")
+}
+
+model AdminPermission {
+  id          String   @id @default(uuid()) @db.Uuid
+  action      String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  roles AdminRolePermission[]
+
+  @@map("admin_permissions")
+}
+
+model AdminRolePermission {
+  id           String          @id @default(uuid()) @db.Uuid
+  roleId       String          @db.Uuid
+  role         AdminRole       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String          @db.Uuid
+  permission   AdminPermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("admin_role_permissions")
+}
+
+model AdminAuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  actorId      String?  @db.Uuid
+  actor        User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action       String
+  resourceType String
+  resourceId   String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([resourceType, resourceId])
+  @@index([createdAt(sort: Desc)])
+  @@map("admin_audit_logs")
+}

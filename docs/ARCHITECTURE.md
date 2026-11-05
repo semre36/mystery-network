@@ -47,13 +47,13 @@ flowchart TD
 
         subgraph ServerInfra["Server Infrastructure Tier"]
             SEC["Security & Auth Guards"]
-            DB_ACCESS["Database Gateway (Prisma - Phase 02)"]
+            DB_ACCESS["Database Gateway (Prisma 6 / PostgreSQL)"]
             JOB_QUEUE["Background Tasks"]
         end
     end
 
-    subgraph External["External Infrastructure (Future Phases)"]
-        NEON["Neon PostgreSQL (Phase 02)"]
+    subgraph External["External Infrastructure"]
+        NEON["Neon PostgreSQL (Active Setup)"]
         TG_API["Telegram Bot API (Phase 03)"]
         REDIS["Redis Cache / PubSub (Future)"]
         S3["Object Storage / Evidence Files (Future)"]
@@ -105,8 +105,8 @@ flowchart TD
 
 ---
 
-## 6. Future Integration Points
+## 6. Integration Points
 
-- **Neon PostgreSQL & Prisma ORM (Phase 02)**: Centralized connection pooling with schema migrations encapsulated in `src/server/infrastructure/db`.
+- **Neon PostgreSQL & Prisma ORM (Phase 02 - Implemented)**: Centralized connection pooling (`DATABASE_URL`) and direct migration connectivity (`DIRECT_URL`) with singleton client in `src/server/infrastructure/database`. Full details in [DATABASE_ARCHITECTURE.md](./DATABASE_ARCHITECTURE.md).
 - **Telegram Bot Webhooks & Polling (Phase 03)**: Handled via secure webhook route handlers (`src/app/api/telegram/webhook/route.ts`).
 - **Telegram WebApp Authenticator (Phase 04)**: Cryptographic signature verification against the bot token inside `src/modules/authentication`.
