@@ -17,6 +17,7 @@ import {
   UserPlus,
   KeyRound,
   Network,
+  FileCheck,
 } from "lucide-react";
 import { InvestigationStatus, CaseDifficulty } from "@prisma/client";
 import type { SafeInvestigationWorkspaceDto } from "@/modules/investigations/types/investigation.types";
@@ -253,6 +254,29 @@ export function WorkspaceHeader({ workspace, onRefresh }: WorkspaceHeaderProps) 
               <Network className="w-3.5 h-3.5 text-purple-400" />
               <span>Crime Board</span>
             </Link>
+
+            {/* File Indictment Action (In Progress) */}
+            {workspace.status === InvestigationStatus.IN_PROGRESS && (
+              <Link
+                href={`/investigations/${workspace.id}/submission`}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-xs font-mono font-semibold transition-colors shadow-sm shadow-amber-950/20"
+              >
+                <FileCheck className="w-3.5 h-3.5 text-amber-400" />
+                <span>File Indictment</span>
+              </Link>
+            )}
+
+            {/* View Results Action (Concluded) */}
+            {(workspace.status === InvestigationStatus.SOLVED ||
+              workspace.status === InvestigationStatus.FAILED) && (
+              <Link
+                href={`/investigations/${workspace.id}/results`}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-300 text-xs font-mono font-semibold transition-colors shadow-sm shadow-emerald-950/20"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Judgment Report</span>
+              </Link>
+            )}
 
             {/* Pause Action */}
             {workspace.status === InvestigationStatus.IN_PROGRESS && (

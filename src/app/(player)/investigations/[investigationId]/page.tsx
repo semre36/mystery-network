@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/modules/authentication/guards/auth.guard";
 import { InvestigationService } from "@/modules/investigations/services/investigation.service";
 import { WorkspaceHeader } from "@/components/investigations/workspace-header";
 import { ChapterProgressionBoard } from "@/components/investigations/chapter-progression-board";
-import { UserCheck, FileKey, Network, Users2, KeyRound } from "lucide-react";
+import { UserCheck, FileKey, Network, Users2, KeyRound, FileCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -111,7 +111,7 @@ export default async function InvestigationWorkspacePage({
           Connected Station Peripherals (Phased Deployment)
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <Link
             href={`/investigations/${workspace.id}/evidence`}
             className="group rounded-xl bg-[#0c1222] border border-cyan-500/40 p-4 space-y-2 hover:border-cyan-400 hover:bg-[#10192e] transition-all shadow-md shadow-cyan-950/20 cursor-pointer"
@@ -130,19 +130,6 @@ export default async function InvestigationWorkspacePage({
               Discover, inspect, annotate, and transmit classified clues.
             </p>
           </Link>
-
-          <div className="rounded-xl bg-[#0a0f1b] border border-[#151f33] p-4 space-y-2 opacity-75">
-            <div className="flex items-center justify-between">
-              <Users2 className="w-4 h-4 text-slate-500" />
-              <span className="text-[9px] font-mono text-slate-500 uppercase px-1.5 py-0.5 rounded bg-[#101726] border border-[#1c273e]">
-                Phase 09
-              </span>
-            </div>
-            <div className="text-xs font-semibold text-slate-300 font-sans">Squad Sync</div>
-            <p className="text-[11px] text-slate-500">
-              Multi-operative channel & evidence trading room.
-            </p>
-          </div>
 
           <Link
             href={`/investigations/${workspace.id}/puzzles`}
@@ -181,6 +168,61 @@ export default async function InvestigationWorkspacePage({
               Visual corkboard linking suspects, timelines & clues.
             </p>
           </Link>
+
+          <Link
+            href={`/investigations/${workspace.id}/submission`}
+            className="group rounded-xl bg-[#0c1222] border border-emerald-500/40 p-4 space-y-2 hover:border-emerald-400 hover:bg-[#10192e] transition-all shadow-md shadow-emerald-950/20 cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <FileCheck className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+              <span className="text-[9px] font-mono text-emerald-300 uppercase px-1.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-700/60">
+                Resolution
+              </span>
+            </div>
+            <div className="text-xs font-semibold text-slate-100 group-hover:text-emerald-200 transition-colors font-sans flex items-center justify-between">
+              <span>Case Indictment</span>
+              <span className="text-[10px] text-emerald-400 font-mono">File Theory →</span>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Construct indictment, cite evidence & submit for judgment.
+            </p>
+          </Link>
+
+          {workspace.team ? (
+            <Link
+              href={`/teams/${workspace.team.id}`}
+              className="group rounded-xl bg-[#0c1222] border border-[#1e2a42] p-4 space-y-2 hover:border-purple-500/40 hover:bg-[#10192e] transition-all cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <Users2 className="w-4 h-4 text-purple-400" />
+                <span className="text-[9px] font-mono text-purple-300 uppercase px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-800">
+                  Active Squad
+                </span>
+              </div>
+              <div className="text-xs font-semibold text-slate-100 font-sans">
+                {workspace.team.name}
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Manage squad roster & coordinate intelligence.
+              </p>
+            </Link>
+          ) : (
+            <Link
+              href="/teams"
+              className="group rounded-xl bg-[#0a0f1b] border border-[#151f33] p-4 space-y-2 hover:border-cyan-500/40 hover:bg-[#0c1222] transition-all cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <Users2 className="w-4 h-4 text-slate-500" />
+                <span className="text-[9px] font-mono text-slate-400 uppercase px-1.5 py-0.5 rounded bg-[#101726] border border-[#1c273e]">
+                  Squads
+                </span>
+              </div>
+              <div className="text-xs font-semibold text-slate-300 font-sans">Form Taskforce</div>
+              <p className="text-[11px] text-slate-500">
+                Deploy with fellow operatives in cooperative mode.
+              </p>
+            </Link>
+          )}
         </div>
       </section>
     </div>

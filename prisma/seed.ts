@@ -91,6 +91,48 @@ async function main() {
       category: AchievementCategory.DEDUCTION,
       criteria: { type: "ACCURACY_PERFECT", count: 1 },
     },
+    {
+      code: "FIRST_CASE_SOLVED",
+      title: "Case Closed",
+      description: "Successfully solve your first operational mystery case.",
+      category: AchievementCategory.DEDUCTION,
+      criteria: { type: "CASES_SOLVED", count: 1 },
+    },
+    {
+      code: "PERFECT_INVESTIGATION",
+      title: "Mastermind Deduction",
+      description: "Achieve a perfect score of 90+ on an official case indictment.",
+      category: AchievementCategory.DEDUCTION,
+      criteria: { type: "SCORE_THRESHOLD", minScore: 90 },
+    },
+    {
+      code: "EVIDENCE_EXPERT",
+      title: "Forensic Mastery",
+      description: "Cite all essential supporting clues and account for all contradictory evidence.",
+      category: AchievementCategory.DEDUCTION,
+      criteria: { type: "EVIDENCE_ACCURACY", fullMatch: true },
+    },
+    {
+      code: "MASTER_DETECTIVE",
+      title: "Senior Operative",
+      description: "Attain Senior Detective rank clearance (Level 7+).",
+      category: AchievementCategory.DEDUCTION,
+      criteria: { type: "MIN_LEVEL", level: 7 },
+    },
+    {
+      code: "TEAM_PLAYER",
+      title: "Taskforce Victorious",
+      description: "Close a criminal conspiracy in cooperative squad play.",
+      category: AchievementCategory.TEAMWORK,
+      criteria: { type: "COOPERATIVE_SOLVE", count: 1 },
+    },
+    {
+      code: "PUZZLE_SPECIALIST",
+      title: "Cryptographic Vanguard",
+      description: "Successfully solve all security cipher challenges in an investigation.",
+      category: AchievementCategory.PUZZLES,
+      criteria: { type: "ALL_PUZZLES_SOLVED", count: 1 },
+    },
   ];
 
   for (const ach of achievements) {
@@ -237,9 +279,43 @@ async function main() {
     });
   }
 
-  // ----------------------------------------------------------------------------
-  // 4. Benchmark Clues & Forensic Evidence (Phase 08)
-  // ----------------------------------------------------------------------------
+  // Seed Phase 12 Solution Configuration on benchmark case
+  const primeSuspect = await prisma.caseCharacter.findFirst({
+    where: { caseId: benchmarkCase.id, name: "Marcus Thorne" },
+  });
+
+  if (primeSuspect) {
+    await prisma.case.update({
+      where: { id: benchmarkCase.id },
+      data: {
+        solutionConfig: {
+          primaryCharacterId: primeSuspect.id,
+          primaryCharacterName: "Marcus Thorne",
+          motiveKeywords: ["sabotage", "carrier redirect", "rogue network", "blackout", "exfiltration"],
+          methodKeywords: ["terminal override", "cryptographic dongle", "breaker interlock", "sector b", "manual override"],
+          timelineKeywords: ["02:50", "02:58", "03:00", "02:59"],
+          requiredSupportingClueCodes: ["EVID-ZR-01", "EVID-ZR-02", "EVID-ZR-04"],
+          requiredContradictingClueCodes: ["EVID-ZR-03"],
+          scoringCriteria: {
+            primarySuspectWeight: 30,
+            motiveWeight: 15,
+            methodWeight: 15,
+            timelineWeight: 15,
+            supportingEvidenceWeight: 15,
+            contradictingEvidenceWeight: 10,
+            maxScore: 100,
+            passScore: 60,
+            perfectScore: 90,
+          },
+          rewards: {
+            baseXP: 250,
+            perfectBonusXP: 150,
+            firstSolveBonusXP: 100,
+          },
+        },
+      },
+    });
+  }
   const benchmarkClues = [
     {
       clueCode: "EVID-ZR-01",

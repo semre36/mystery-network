@@ -355,3 +355,50 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 - [x] Comprehensive automated test suite created (`tests/investigation-board.test.ts` — 19 tests; 271 total tests passing across all 12 test files).
 - [x] Architecture documentation authored (`docs/INVESTIGATION_BOARD.md`).
 - [x] Zero regressions across Phase 01–10 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.
+
+---
+
+## Phase 12: Submissions, Evaluation Engine, Results & Player Rewards — Acceptance Checklist
+
+- [x] Database schema enhanced in `prisma/schema.prisma`:
+  - `SubmissionStatus`: added `DRAFT` status enum value.
+  - `Case`: added `solutionConfig Json?` column for secret evaluation criteria.
+  - `CaseSubmission`: added `title`, `submittedAt`, `createdAt`, `updatedAt`, and default status `DRAFT`.
+  - `XPTransaction`: added `referenceKey String? @unique` for database-level atomic idempotency.
+- [x] Neon PostgreSQL migrations applied safely (`20261106134901_add_draft_to_submission_status` & `20261106134902_add_submissions_evaluations_and_reward_idempotency`). Total 9 migrations active in Neon.
+- [x] Database seeded with Phase 12 achievements catalog and secret `solutionConfig` for `CASE-001-MIDNIGHT-PROTOCOL`.
+- [x] Progression & leveling mathematical utilities implemented in `src/modules/progression/utils/progression.util.ts`:
+  - Formula: $\text{Level} = \lfloor 1 + \sqrt{\text{totalXP} / 100} \rfloor$.
+  - Exact threshold calculations and rank title mappings across all operative clearance tiers.
+- [x] Zod validation schemas implemented (`SaveSubmissionDraftSchema`, `FinalSubmissionSchema`).
+- [x] Centralized submission guards implemented (`SubmissionGuard`) verifying investigation status, active participants, disbanded squad detection, Lead Investigator submission authority, case character validation, and declassified evidence access.
+- [x] Server-only deterministic evaluation engine implemented (`EvaluationService`):
+  - 6 dimensions: Primary Suspect (30 pts), Motive (15 pts), Method (15 pts), Timeline (15 pts), Supporting Evidence (15 pts), Contradicting Evidence (10 pts). Max 100 points.
+  - Classification: `SOLVED_PERFECT` (>= 90 pts), `SOLVED_PARTIAL` (>= 60 pts), `INCORRECT` (< 60 pts).
+  - Feedback dossiers with discrepancy analysis without secret answer leakage.
+- [x] Idempotent reward service implemented (`RewardService`):
+  - XP awards with unique `referenceKey` (`xp:case_solve:${investigationId}:${playerId}`) preventing duplicate awards.
+  - Accolade unlocking system (`FIRST_CASE_SOLVED`, `PERFECT_INVESTIGATION`, `EVIDENCE_EXPERT`, `PUZZLE_SPECIALIST`, `TEAM_PLAYER`, `MASTER_DETECTIVE`, `CAMPAIGN_COMPLETED`).
+- [x] REST API endpoints implemented:
+  - `GET /api/investigations/[investigationId]/submissions`
+  - `POST /api/investigations/[investigationId]/submissions`
+  - `POST /api/investigations/[investigationId]/submissions/submit`
+  - `GET /api/investigations/[investigationId]/results`
+  - `GET /api/player/progression`
+  - `GET /api/player/achievements`
+- [x] Thematic operative UI components implemented:
+  - `SubmissionForm`: Interactive multi-section case indictment builder.
+  - `SubmissionReviewModal`: Pre-submission checklist & immutability warning confirmation.
+  - `ResultsView`: Official judgment report dossier with dimensional score breakdown and forensic feedback.
+  - `ProgressionView`: Operative progression dossier, XP progress bar, rank badges, and transaction ledger.
+  - `AchievementsView`: Accolades catalog with unlocked statuses and reward badges.
+- [x] Routes and workspace integration:
+  - `/investigations/[investigationId]/submission`
+  - `/investigations/[investigationId]/results`
+  - `/profile/progression`
+  - `/profile/achievements`
+  - `/achievements`
+  - Quick action links integrated into `WorkspaceHeader`, case investigation dashboard, and operative profile.
+- [x] Comprehensive automated test suite created (`tests/submissions.test.ts` — 26 tests; 297 total tests passing across all 13 test files).
+- [x] Architecture documentation authored (`docs/SUBMISSIONS_AND_REWARDS.md`).
+- [x] Zero regressions across Phase 01–11 features; strict TypeScript compilation, linting, and Next.js production build verified.

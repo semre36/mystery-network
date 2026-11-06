@@ -154,6 +154,7 @@ enum InvitationStatus {
 }
 
 enum SubmissionStatus {
+  DRAFT
   SUBMITTED
   EVALUATED
   REJECTED
@@ -342,6 +343,7 @@ model Case {
   supportedPlayModes       PlayMode[]
   status                   ContentStatus  @default(DRAFT)
   publishedAt              DateTime?
+  solutionConfig           Json?
   createdAt                DateTime       @default(now())
   updatedAt                DateTime       @updatedAt
 
@@ -796,9 +798,12 @@ model CaseSubmission {
   investigation   Investigation    @relation(fields: [investigationId], references: [id], onDelete: Cascade)
   submittedById   String           @db.Uuid
   submittedBy     PlayerProfile    @relation(fields: [submittedById], references: [id], onDelete: Restrict)
+  title           String?
   answerData      Json
-  status          SubmissionStatus @default(SUBMITTED)
-  submittedAt     DateTime         @default(now())
+  status          SubmissionStatus @default(DRAFT)
+  submittedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   evaluation SubmissionEvaluation?
 
@@ -833,6 +838,7 @@ model XPTransaction {
   player          PlayerProfile  @relation(fields: [playerId], references: [id], onDelete: Restrict)
   amount          Int
   reason          String
+  referenceKey    String?        @unique
   investigationId String?        @db.Uuid
   investigation   Investigation? @relation(fields: [investigationId], references: [id], onDelete: SetNull)
   createdAt       DateTime       @default(now())
