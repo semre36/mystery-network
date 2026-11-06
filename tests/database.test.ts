@@ -55,6 +55,7 @@ describe("Database Architecture & Prisma Setup (Phase 02)", () => {
       expect(prisma.clueAssignment).toBeDefined();
       expect(prisma.evidenceShare).toBeDefined();
       expect(prisma.evidenceAsset).toBeDefined();
+      expect(prisma.evidenceNote).toBeDefined();
     });
 
     it("should expose all required Domain E (Puzzle System) delegates", () => {

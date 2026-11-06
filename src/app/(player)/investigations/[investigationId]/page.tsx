@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/modules/authentication/guards/auth.guard";
 import { InvestigationService } from "@/modules/investigations/services/investigation.service";
@@ -111,18 +112,24 @@ export default async function InvestigationWorkspacePage({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="rounded-xl bg-[#0a0f1b] border border-[#151f33] p-4 space-y-2 opacity-75">
+          <Link
+            href={`/investigations/${workspace.id}/evidence`}
+            className="group rounded-xl bg-[#0c1222] border border-cyan-500/40 p-4 space-y-2 hover:border-cyan-400 hover:bg-[#10192e] transition-all shadow-md shadow-cyan-950/20 cursor-pointer"
+          >
             <div className="flex items-center justify-between">
-              <FileKey className="w-4 h-4 text-slate-500" />
-              <span className="text-[9px] font-mono text-slate-500 uppercase px-1.5 py-0.5 rounded bg-[#101726] border border-[#1c273e]">
-                Phase 08
+              <FileKey className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+              <span className="text-[9px] font-mono text-cyan-300 uppercase px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-700/60">
+                Active Vault
               </span>
             </div>
-            <div className="text-xs font-semibold text-slate-300 font-sans">Evidence Vault</div>
-            <p className="text-[11px] text-slate-500">
-              Asymmetric clue distribution & forensic documents.
+            <div className="text-xs font-semibold text-slate-100 group-hover:text-cyan-200 transition-colors font-sans flex items-center justify-between">
+              <span>Evidence Vault</span>
+              <span className="text-[10px] text-cyan-400 font-mono">Access →</span>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Discover, inspect, annotate, and transmit classified clues.
             </p>
-          </div>
+          </Link>
 
           <div className="rounded-xl bg-[#0a0f1b] border border-[#151f33] p-4 space-y-2 opacity-75">
             <div className="flex items-center justify-between">

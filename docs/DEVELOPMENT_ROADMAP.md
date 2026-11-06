@@ -178,3 +178,29 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 - [x] Comprehensive automated test suite implemented (`tests/investigations.test.ts` — 24 tests, 153 total tests passing across all suites).
 - [x] Complete architecture and lifecycle documentation authored (`docs/INVESTIGATION_ENGINE.md`).
 - [x] Zero regressions across Phase 01–06 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.
+
+---
+
+## Phase 08: Evidence System, Clue Distribution & Investigation Analysis — Acceptance Checklist
+
+- [x] Prisma schema enhanced with `clueCode`, `EvidenceShare.revokedAt`, and `EvidenceNote` model with relations and indexes.
+- [x] Database migration applied to live Neon PostgreSQL (`20261106120535_add_evidence_notes_and_clue_enhancements`).
+- [x] Benchmark clues seeded for `CASE-001-MIDNIGHT-PROTOCOL` (`EVID-ZR-01` through `EVID-ZR-05`) with multi-act gating and image/audio assets.
+- [x] Data transfer objects and validation schemas created (`SafeEvidenceSummaryDto`, `SafeEvidenceDetailDto`, `SaveEvidenceNoteSchema`, `ShareEvidenceSchema`, `EvidenceQuerySchema`).
+- [x] Secure storage abstraction implemented (`StorageService`) with MIME validation, 10 MB file ceiling, random UUID keys, and path traversal protection.
+- [x] Evidence domain service implemented (`EvidenceService`) supporting provisioning, asymmetric distribution, secure detail retrieval, note editing, and squad sharing.
+- [x] Asymmetric clue distribution: private clues (`ASYMMETRIC_EXCLUSIVE`) accessible only to assigned operative until explicitly shared.
+- [x] Explicit evidence sharing protocol implemented with investigation participant validation, anti-duplicate protection, and audit logging.
+- [x] Private field notes isolated per operative with unique compound constraints `(investigationId, clueId, playerId)`.
+- [x] Anti-IDOR security: uniform HTTP 404 (`EVIDENCE_NOT_FOUND`) on unauthorized access, non-members, or locked chapter clues.
+- [x] REST API endpoints implemented:
+  - `GET /api/investigations/[investigationId]/evidence`
+  - `GET /api/investigations/[investigationId]/evidence/[evidenceId]`
+  - `POST /api/investigations/[investigationId]/evidence/[evidenceId]/notes`
+  - `POST /api/investigations/[investigationId]/evidence/[evidenceId]/share`
+  - `GET /api/investigations/[investigationId]/evidence/shared`
+- [x] Operative Evidence Vault page implemented at `/investigations/[investigationId]/evidence` with real-time filters, scope badges, search, and detail modal.
+- [x] Interactive Evidence UI components implemented (`EvidenceCard`, `EvidenceFilters`, `EvidenceDetailModal`, `EvidenceNotesEditor`, `EvidenceShareDialog`).
+- [x] Automated test suite implemented (`tests/evidence.test.ts` — 20 tests; 181 total tests passing across 9 test files).
+- [x] Complete documentation authored (`docs/EVIDENCE_SYSTEM.md`).
+- [x] Zero regressions across Phase 01–07 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.

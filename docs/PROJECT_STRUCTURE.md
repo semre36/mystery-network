@@ -120,6 +120,9 @@ mystery-network/
 │   ├── TELEGRAM_BOT.md         # Telegram Bot architecture, webhook security, CLI scripts
 │   ├── TELEGRAM_AUTHENTICATION.md # Cryptographic verification, sessions, identity mapping
 │   ├── PLAYER_INTERFACE.md     # Intelligence application shell, dossier, progression, profile
+│   ├── CASE_MANAGEMENT.md      # Case operations, briefings, campaign directory, public DTOs
+│   ├── INVESTIGATION_ENGINE.md # Persistent sessions, lifecycle state machine, chapter progress
+│   ├── EVIDENCE_SYSTEM.md      # Evidence vault, asymmetric clue distribution, notes, sharing
 │   ├── DEVELOPMENT_GUIDELINES.md # Code standards, TypeScript rules, test patterns
 │   ├── SECURITY_STANDARDS.md   # Secret isolation, HMAC verification, auth boundaries
 │   ├── PROJECT_STRUCTURE.md    # Directory layout & domain mapping (this file)
@@ -131,7 +134,10 @@ mystery-network/
 │   ├── database.test.ts        # Database client singleton, models, and validation tests
 │   ├── telegram.test.ts        # Telegram commands, deep-link parsing, and webhook tests
 │   ├── auth.test.ts            # Mini App auth HMAC verification, session & cookie tests
-│   └── player.test.ts          # Dossier queries, rank tiers, profile mutations, API tests
+│   ├── player.test.ts          # Dossier queries, rank tiers, profile mutations, API tests
+│   ├── cases.test.ts           # Case discovery, search/filters, briefing, campaign API tests
+│   ├── investigations.test.ts  # Session lifecycle, chapter progression, concurrency tests
+│   └── evidence.test.ts        # Clue distribution, asymmetric access, notes, sharing tests
 │
 ├── .env.example                # Documented environment template
 ├── .gitignore                  # Git exclusions for secrets, builds, and node_modules

@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Loader2,
+  Shield,
 } from "lucide-react";
 import { InvestigationStatus, CaseDifficulty } from "@prisma/client";
 import type { SafeInvestigationWorkspaceDto } from "@/modules/investigations/types/investigation.types";
@@ -161,6 +162,15 @@ export function WorkspaceHeader({ workspace }: WorkspaceHeaderProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Evidence Vault Quick Access */}
+            <Link
+              href={`/investigations/${workspace.id}/evidence`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-semibold transition-colors"
+            >
+              <Shield className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Evidence Vault</span>
+            </Link>
+
             {/* Pause Action */}
             {workspace.status === InvestigationStatus.IN_PROGRESS && (
               <button

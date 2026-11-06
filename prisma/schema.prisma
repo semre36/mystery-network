@@ -226,6 +226,7 @@ model PlayerProfile {
   clueAssignments     ClueAssignment[]
   sharedEvidenceFrom  EvidenceShare[]            @relation("SharedEvidenceFrom")
   sharedEvidenceTo    EvidenceShare[]            @relation("SharedEvidenceTo")
+  evidenceNotes       EvidenceNote[]
   puzzleAttempts      PuzzleAttempt[]
   ownedTeams          Team[]                     @relation("TeamOwner")
   teamMemberships     TeamMembership[]
@@ -349,6 +350,7 @@ model Investigation {
   progress        InvestigationProgress[]
   clueAssignments ClueAssignment[]
   evidenceShares  EvidenceShare[]
+  evidenceNotes   EvidenceNote[]
   puzzleAttempts  PuzzleAttempt[]
   submissions     CaseSubmission[]
   xpTransactions  XPTransaction[]
@@ -399,6 +401,7 @@ model InvestigationProgress {
 
 model Clue {
   id                 String        @id @default(uuid()) @db.Uuid
+  clueCode           String?
   caseId             String        @db.Uuid
   case               Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
   chapterId          String?       @db.Uuid
@@ -414,13 +417,16 @@ model Clue {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  assignments ClueAssignment[]
-  assets      EvidenceAsset[]
+  assignments   ClueAssignment[]
+  assets        EvidenceAsset[]
+  evidenceNotes EvidenceNote[]
 
+  @@unique([caseId, clueCode])
   @@index([caseId])
   @@index([chapterId])
   @@index([clueType])
   @@index([status])
+  @@index([clueCode])
   @@map("clues")
 }
 
@@ -456,12 +462,31 @@ model EvidenceShare {
   recipientPlayerId String?        @db.Uuid
   recipientPlayer   PlayerProfile? @relation("SharedEvidenceTo", fields: [recipientPlayerId], references: [id], onDelete: Restrict)
   sharedAt          DateTime       @default(now())
+  revokedAt         DateTime?
 
   @@index([investigationId])
   @@index([clueAssignmentId])
   @@index([sharingPlayerId])
   @@index([recipientPlayerId])
   @@map("evidence_shares")
+}
+
+model EvidenceNote {
+  id              String        @id @default(uuid()) @db.Uuid
+  investigationId String        @db.Uuid
+  investigation   Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  clueId          String        @db.Uuid
+  clue            Clue          @relation(fields: [clueId], references: [id], onDelete: Cascade)
+  playerId        String        @db.Uuid
+  player          PlayerProfile @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  content         String        @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([investigationId, clueId, playerId])
+  @@index([investigationId, playerId])
+  @@index([clueId])
+  @@map("evidence_notes")
 }
 
 model EvidenceAsset {

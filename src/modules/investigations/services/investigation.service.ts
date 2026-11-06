@@ -14,6 +14,7 @@ import type {
   SafeInvestigationChapterProgressDto,
   InvestigationQueryFilters,
 } from "../types/investigation.types";
+import { EvidenceService } from "@/modules/evidence/services/evidence.service";
 import type {
   PaginatedResponse,
   SafeCaseSummaryDto,
@@ -322,6 +323,17 @@ export class InvestigationService {
         await tx.investigationProgress.createMany({
           data: progressEntries,
         });
+
+        // 5. Automatically provision initial evidence for Act 1
+        if (typeof (tx as any).clue?.findMany === "function") {
+          await EvidenceService.provisionInvestigationClues(
+            tx,
+            newInvestigation.id,
+            caseRecord.id,
+            firstChapterId,
+            [playerId]
+          );
+        }
       }
 
       logger.info("Initialized new investigation session", {
@@ -770,6 +782,16 @@ export class InvestigationService {
           investigationId: trimmedId,
           unlockedChapterOrder: nextProgress.chapter.chapterOrder,
         });
+
+        // Automatically provision evidence unlocked for this subsequent chapter
+        if (typeof prisma.clue?.findMany === "function") {
+          await EvidenceService.provisionInvestigationClues(
+            prisma,
+            trimmedId,
+            investigation.case.id,
+            nextProgress.chapterId
+          );
+        }
       }
     }
 

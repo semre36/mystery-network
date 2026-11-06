@@ -104,3 +104,25 @@
   - Attempting to unlock or progress a locked chapter is rejected with HTTP 400 (`CHAPTER_LOCKED`).
 - **Concurrency & Duplicate Guard**:
   - Concurrency-safe interactive database transactions prevent race conditions and duplicate session generation on duplicate client requests.
+
+---
+
+## 10. Evidence System & Clue Distribution Security (Phase 08)
+
+- **Anti-IDOR & Existence Enumeration Prevention**:
+  - Requesting a clue that does not belong to the active investigation, or an asymmetric clue assigned to another operative that has not been shared, or guessing an evidence UUID returns uniform HTTP 404 (`EVIDENCE_NOT_FOUND`).
+  - No differences in error codes, timing signatures, or response structures leak clue existence.
+- **Chapter Lock Enforcement**:
+  - Clues associated with locked chapters cannot be discovered, assigned, or inspected. The server filters out clues belonging to uncompleted preceding chapters.
+- **Asymmetric Intelligence Confidentiality**:
+  - Private evidence (`ASYMMETRIC_EXCLUSIVE`) is strictly visible only to the assigned investigator until transmitted via an explicit `EvidenceShare` record.
+- **Strict Peer-to-Peer Sharing Scoping**:
+  - Evidence sharing verifies both sender and recipient belong to the **exact same** investigation. Sharing with external players, inactive operatives, or oneself is strictly blocked.
+  - Active shares are idempotent; duplicate sharing requests are rejected.
+- **Private Notes Isolation**:
+  - Field notes (`EvidenceNote`) are keyed on `(investigationId, clueId, playerId)`. Queries strictly bind the authenticated operative's ID. Teammates cannot inspect each other's deductions.
+- **Asset Storage & Traversal Hardening (`StorageService`)**:
+  - All file uploads and streaming keys are validated against a strict MIME whitelist (`image/jpeg`, `image/png`, `image/webp`, `audio/mpeg`, `audio/wav`, `audio/ogg`, `application/pdf`, `text/plain`).
+  - A strict 10 MB (`10,485,760 bytes`) file size limit is enforced.
+  - Storage keys are cryptographically generated UUIDs. File names are stripped of path components to prevent directory traversal (`../`) attacks.
+  - No raw cloud storage keys, S3 credentials, or internal bucket names are exposed to clients.
