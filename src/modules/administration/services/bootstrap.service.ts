@@ -43,9 +43,10 @@ export class AdminBootstrapService {
     }
 
     // Execute bootstrap atomically inside a database transaction protected by an advisory lock
-    return prisma.$transaction(async (tx) => {
-      // Concurrency protection: acquire PostgreSQL transaction advisory lock
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('admin_bootstrap_lock'))`;
+    return prisma.$transaction(
+      async (tx) => {
+        // Concurrency protection: acquire PostgreSQL transaction advisory lock
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('admin_bootstrap_lock'))`;
 
       // 1. Locate the Super Admin role
       const superAdminRole = await tx.adminRole.findUnique({
@@ -73,19 +74,21 @@ export class AdminBootstrapService {
         );
       }
 
-      // 3. Find the target user by userId, telegramId, or codename
-      const isBigInt = /^\d+$/.test(targetIdentifier);
+      // 3. Find the target user by userId, telegramId, telegramUsername, or codename
+      const cleanTarget = targetIdentifier.replace(/^@/, "").trim();
+      const isBigInt = /^\d+$/.test(cleanTarget);
       const isUUID =
         /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-          targetIdentifier
+          cleanTarget
         );
 
       const user = await tx.user.findFirst({
         where: {
           OR: [
-            ...(isUUID ? [{ id: targetIdentifier }] : []),
-            ...(isBigInt ? [{ telegramId: BigInt(targetIdentifier) }] : []),
-            { profile: { codename: { equals: targetIdentifier, mode: "insensitive" as any } } },
+            ...(isUUID ? [{ id: cleanTarget }] : []),
+            ...(isBigInt ? [{ telegramId: BigInt(cleanTarget) }] : []),
+            { telegramUsername: { equals: cleanTarget, mode: "insensitive" as any } },
+            { profile: { codename: { equals: cleanTarget, mode: "insensitive" as any } } },
           ],
         },
         include: { profile: true },
@@ -144,6 +147,8 @@ export class AdminBootstrapService {
         telegramId: user.telegramId.toString(),
         role: DEFAULT_ADMIN_ROLES.SUPER_ADMIN,
       };
-    });
+    },
+    { maxWait: 10000, timeout: 25000 }
+  );
   }
 }

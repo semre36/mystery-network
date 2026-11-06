@@ -1,4 +1,8 @@
 #!/usr/bin/env tsx
+try {
+  process.loadEnvFile?.();
+} catch {}
+
 /**
  * MYSTERY NETWORK — Initial Super Administrator Bootstrap CLI
  *
@@ -27,6 +31,7 @@ async function runBootstrap() {
   try {
     const result = await AdminBootstrapService.bootstrapInitialSuperAdmin({
       targetIdentifier: target.trim(),
+      bootstrapSecret: process.env.ADMIN_BOOTSTRAP_SECRET,
     });
 
     console.log("✅ Super Administrator bootstrap successful!");
