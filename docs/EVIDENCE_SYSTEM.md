@@ -172,12 +172,14 @@ Operatives can choose when and with whom to share private intelligence:
 
 ## 7. Private Field Notes
 
-Each operative maintains an encrypted notebook for formulating theories:
+Operatives maintain personal investigative field notes for formulating theories and recording deductions:
 
 - **Entity**: `EvidenceNote`
+- **Storage & Security Model**: Notes are stored as plain text in PostgreSQL (protected at rest by cloud database provider encryption via AWS KMS/LUKS). They are NOT encrypted at the application layer. Privacy is strictly enforced at the application tier via row-level authorization queries bound to `playerId: currentOperative.id`.
 - **Unique Constraint**: `@@unique([investigationId, clueId, playerId])`
-- **Privacy Enforcement**: Queries filtering notes always bind `playerId: currentOperative.id`. Other squad members cannot read or query these notes.
-- **Maximum Length**: 5,000 characters per clue note, validated via Zod schemas.
+- **Isolation Enforcement**: Note content is NEVER returned in investigation evidence lists, sharing manifests, or another operative's clue dossier.
+- **Supported Operations**: Full CRUD support (`GET` via evidence detail, `POST` / `PATCH` via upsert, `DELETE` via note removal).
+- **Maximum Length**: 2,000 characters per clue note, validated via Zod schemas.
 
 ---
 
@@ -185,14 +187,23 @@ Each operative maintains an encrypted notebook for formulating theories:
 
 All file assets (surveillance photos, audio recordings, documents) are managed by `StorageService`:
 
+### Implementation Status Breakdown
+
+1. **Metadata Storage (Implemented)**: PostgreSQL `EvidenceAsset` records store file names, MIME types, file sizes, asset types, and storage keys.
+2. **Local File Streaming (Implemented)**: Authenticated streaming route `GET /api/investigations/[investigationId]/evidence/[evidenceId]/assets/[assetId]` validates operative access before streaming. Missing physical files safely return HTTP 404 (`ASSET_FILE_NOT_FOUND`).
+3. **Physical File Storage (Placeholder / Deferred)**: Benchmark files (`server_access_audit_log.png`, `voip_intercept_segment_7.wav`) exist as metadata records in the database. Physical binaries are awaiting production object storage synchronization.
+4. **Cloud Object Storage (Future / Phase 14)**: S3/Cloudflare R2 integration will plug into `StorageService` without modifying client contracts.
+
+### Security Guarantees
+
 - **MIME Whitelist**:
   - Images: `image/jpeg`, `image/png`, `image/webp`
   - Audio: `audio/mpeg`, `audio/wav`, `audio/ogg`
   - Documents: `application/pdf`, `text/plain`
 - **File Size Ceiling**: Maximum 10 MB (`10,485,760 bytes`), enforced before processing.
-- **Key Generation**: Collision-resistant cryptographic keys formatted as `evidence/<clueId>/<randomUUID>.<ext>`.
+- **Key Generation**: Collision-resistant cryptographic keys formatted as `evidence/<caseId>/<clueId>/<randomUUID>.<ext>`.
 - **Path Sanitization**: Basename stripping prevents directory traversal (`../`) attacks.
-- **URL Streaming**: Generates secure internal `/api/storage/evidence/...` URLs with no exposure of underlying infrastructure credentials.
+- **URL Streaming**: Generates secure internal `/api/investigations/[investigationId]/evidence/[clueId]/assets/[assetId]` URLs with zero credential leakage.
 
 ---
 
@@ -256,14 +267,26 @@ Five benchmark clues have been seeded into `CASE-001-MIDNIGHT-PROTOCOL` across A
 - **Body**: `{ "content": "Operative observations..." }`
 - **Behavior**: Upserts note strictly scoped to requesting operative.
 
-### 4. `POST /api/investigations/[investigationId]/evidence/[evidenceId]/share`
+### 4. `DELETE /api/investigations/[investigationId]/evidence/[evidenceId]/notes`
+
+- **Behavior**: Deletes the private note for the requesting operative.
+
+### 5. `POST /api/investigations/[investigationId]/evidence/[evidenceId]/share`
 
 - **Body**: `{ "recipientPlayerId": "recipient-profile-uuid" }`
-- **Behavior**: Validates investigation membership and creates explicit share record.
+- **Behavior**: Validates sender has direct access and recipient is in the same investigation; creates explicit share record in an atomic transaction.
 
-### 5. `GET /api/investigations/[investigationId]/evidence/shared`
+### 6. `DELETE /api/investigations/[investigationId]/evidence/[evidenceId]/share/[shareId]`
+
+- **Behavior**: Revokes an active evidence share. Only the sharing operative can revoke it.
+
+### 7. `GET /api/investigations/[investigationId]/evidence/shared`
 
 - **Response**: Returns all clues actively shared with the requesting operative.
+
+### 8. `GET /api/investigations/[investigationId]/evidence/[evidenceId]/assets/[assetId]`
+
+- **Behavior**: Verifies operative access to the clue before streaming binary asset file. Returns safe 404 if file is not stored locally.
 
 ---
 

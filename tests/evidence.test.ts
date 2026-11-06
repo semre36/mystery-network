@@ -11,8 +11,11 @@ import { GET as getEvidenceDetailRoute } from "@/app/api/investigations/[investi
 import {
   POST as saveEvidenceNoteRoute,
   PATCH as updateEvidenceNoteRoute,
+  DELETE as deleteEvidenceNoteRoute,
 } from "@/app/api/investigations/[investigationId]/evidence/[evidenceId]/notes/route";
 import { POST as shareEvidenceRoute } from "@/app/api/investigations/[investigationId]/evidence/[evidenceId]/share/route";
+import { DELETE as revokeEvidenceShareRoute } from "@/app/api/investigations/[investigationId]/evidence/[evidenceId]/share/[shareId]/route";
+import { GET as getEvidenceAssetRoute } from "@/app/api/investigations/[investigationId]/evidence/[evidenceId]/assets/[assetId]/route";
 import * as authGuard from "@/modules/authentication/guards/auth.guard";
 import { prisma } from "@/server/infrastructure/database";
 import { AppError } from "@/lib/errors/app-error";
@@ -103,6 +106,12 @@ describe("Evidence System & Clue Distribution (Phase 08)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(authGuard, "requireAuthenticatedUser").mockResolvedValue(mockAuthenticatedUser as any);
+    vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => {
+      if (typeof callback === "function") {
+        return callback(prisma);
+      }
+      return callback;
+    });
   });
 
   // =========================================================================
@@ -339,6 +348,7 @@ describe("Evidence System & Clue Distribution (Phase 08)", () => {
         },
         clueAssignment: {
           findUnique: vi.fn().mockResolvedValue({ id: "existing_assign" }), // Already exists
+          findFirst: vi.fn().mockResolvedValue({ id: "existing_assign" }),
           create: vi.fn(),
         },
       };
@@ -639,6 +649,360 @@ describe("Evidence System & Clue Distribution (Phase 08)", () => {
       const json = await res.json();
       expect(json.ok).toBe(true);
       expect(json.data.id).toBe("share_1");
+    });
+
+    it("DELETE /api/investigations/[investigationId]/evidence/[evidenceId]/notes should delete private note", async () => {
+      vi.spyOn(EvidenceService, "deleteEvidenceNote").mockResolvedValueOnce();
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/investigations/${MOCK_INVESTIGATION_ID}/evidence/${MOCK_CLUE_ID_1}/notes`,
+        { method: "DELETE" }
+      );
+      const res = await deleteEvidenceNoteRoute(req, {
+        params: Promise.resolve({
+          investigationId: MOCK_INVESTIGATION_ID,
+          evidenceId: MOCK_CLUE_ID_1,
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.ok).toBe(true);
+      expect(json.message).toContain("deleted successfully");
+    });
+
+    it("DELETE /api/investigations/[investigationId]/evidence/[evidenceId]/share/[shareId] should revoke share", async () => {
+      vi.spyOn(EvidenceService, "revokeEvidenceShare").mockResolvedValueOnce();
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/investigations/${MOCK_INVESTIGATION_ID}/evidence/${MOCK_CLUE_ID_1}/share/share_123`,
+        { method: "DELETE" }
+      );
+      const res = await revokeEvidenceShareRoute(req, {
+        params: Promise.resolve({
+          investigationId: MOCK_INVESTIGATION_ID,
+          evidenceId: MOCK_CLUE_ID_1,
+          shareId: "share_123",
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.ok).toBe(true);
+      expect(json.message).toContain("revoked successfully");
+    });
+
+    it("GET /api/investigations/[investigationId]/evidence/[evidenceId]/assets/[assetId] should return 404 ASSET_FILE_NOT_FOUND when binary file is missing from local storage", async () => {
+      vi.spyOn(EvidenceService, "getEvidenceAsset").mockResolvedValueOnce({
+        asset: {
+          id: "asset_test_1",
+          fileName: "server_log.png",
+          mimeType: "image/png",
+          storageKey: "evidence/CASE-001/CLUE-001/missing_file.png",
+        },
+      } as any);
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/investigations/${MOCK_INVESTIGATION_ID}/evidence/${MOCK_CLUE_ID_1}/assets/asset_test_1`
+      );
+      const res = await getEvidenceAssetRoute(req, {
+        params: Promise.resolve({
+          investigationId: MOCK_INVESTIGATION_ID,
+          evidenceId: MOCK_CLUE_ID_1,
+          assetId: "asset_test_1",
+        }),
+      });
+
+      expect(res.status).toBe(404);
+      const json = await res.json();
+      expect(json.code).toBe("ASSET_FILE_NOT_FOUND");
+    });
+  });
+
+  // =========================================================================
+  // 7. Architectural Audit Scenarios (Audits 1, 2, 3, 4)
+  // =========================================================================
+  describe("Architectural Audit Verification", () => {
+    // AUDIT 1: Late participant provisioning & asymmetric isolation
+    it("should provision ALL_PLAYERS to late-joining operative without granting exclusive clues already held by another", async () => {
+      const allPlayersClue = createMockClue({
+        id: "clue_all_players",
+        assignmentStrategy: ClueStrategy.ALL_PLAYERS,
+      });
+      const exclusiveClue = createMockClue({
+        id: "clue_exclusive",
+        assignmentStrategy: ClueStrategy.ASYMMETRIC_EXCLUSIVE,
+      });
+
+      const mockDb = {
+        clue: {
+          findMany: vi.fn().mockResolvedValue([allPlayersClue, exclusiveClue]),
+        },
+        clueAssignment: {
+          findUnique: vi.fn().mockResolvedValue(null), // For ALL_PLAYERS clue: player 2 has not received it yet
+          findFirst: vi.fn().mockResolvedValue({
+            // For exclusive clue: ALREADY assigned to player 1!
+            id: "assignment_p1",
+            playerId: MOCK_PROFILE_ID,
+          }),
+          create: vi.fn().mockResolvedValue({ id: "new_assignment" }),
+        },
+      };
+
+      // Provision for late-joining player 2
+      const createdCount = await EvidenceService.provisionInvestigationClues(
+        mockDb,
+        MOCK_INVESTIGATION_ID,
+        MOCK_CASE_ID,
+        MOCK_CHAPTER_ID_1,
+        [MOCK_OTHER_PROFILE_ID]
+      );
+
+      // Only ALL_PLAYERS clue should have been assigned (createdCount = 1)
+      expect(createdCount).toBe(1);
+      expect(mockDb.clueAssignment.create).toHaveBeenCalledTimes(1);
+      expect(mockDb.clueAssignment.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          clueId: "clue_all_players",
+          playerId: MOCK_OTHER_PROFILE_ID,
+        }),
+      });
+    });
+
+    // AUDIT 1: Repeated provisioning idempotency
+    it("should handle repeated provisioning calls without creating duplicate assignments", async () => {
+      const allPlayersClue = createMockClue({
+        id: "clue_all_players",
+        assignmentStrategy: ClueStrategy.ALL_PLAYERS,
+      });
+
+      const mockDb = {
+        clue: {
+          findMany: vi.fn().mockResolvedValue([allPlayersClue]),
+        },
+        clueAssignment: {
+          findUnique: vi.fn().mockResolvedValue({ id: "already_exists" }), // already assigned
+          create: vi.fn(),
+        },
+      };
+
+      const createdCount = await EvidenceService.provisionInvestigationClues(
+        mockDb,
+        MOCK_INVESTIGATION_ID,
+        MOCK_CASE_ID,
+        MOCK_CHAPTER_ID_1,
+        [MOCK_PROFILE_ID]
+      );
+
+      expect(createdCount).toBe(0);
+      expect(mockDb.clueAssignment.create).not.toHaveBeenCalled();
+    });
+
+    // AUDIT 4: Revocation denies access
+    it("should deny clue access when the evidence share has been revoked", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_OTHER_PROFILE_ID, // Recipient
+      } as any);
+
+      const mockInv = createMockInvestigation({
+        participants: [
+          {
+            id: "part_recipient",
+            investigationId: MOCK_INVESTIGATION_ID,
+            playerId: MOCK_OTHER_PROFILE_ID,
+            status: ParticipantStatus.ACTIVE,
+          },
+        ],
+      });
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValue(mockInv as any);
+
+      // Clue is exclusive
+      const clue = createMockClue({
+        assignmentStrategy: ClueStrategy.ASYMMETRIC_EXCLUSIVE,
+      });
+      vi.spyOn(prisma.clue, "findUnique").mockResolvedValue(clue as any);
+
+      // No direct assignment for recipient
+      vi.spyOn(prisma.clueAssignment, "findUnique").mockResolvedValue(null);
+
+      // Share exists BUT was REVOKED (revokedAt is checked by findFirst)
+      vi.spyOn(prisma.evidenceShare, "findFirst").mockResolvedValue(null);
+
+      await expect(
+        EvidenceService.getEvidenceDetail(MOCK_OTHER_USER_ID, MOCK_INVESTIGATION_ID, clue.id)
+      ).rejects.toThrow("Evidence record not found or restricted");
+    });
+
+    // AUDIT 4: Locked clue cannot be accessed even if share record exists
+    it("should reject evidence detail for a shared clue if its chapter is still locked in the investigation", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_OTHER_PROFILE_ID,
+      } as any);
+
+      // Investigation has chapter 2 LOCKED
+      const mockInv = createMockInvestigation();
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValue(mockInv as any);
+
+      // Clue belongs to locked chapter 2
+      const lockedClue = createMockClue({
+        chapterId: MOCK_CHAPTER_ID_2,
+      });
+      vi.spyOn(prisma.clue, "findUnique").mockResolvedValue(lockedClue as any);
+
+      await expect(
+        EvidenceService.getEvidenceDetail(MOCK_OTHER_USER_ID, MOCK_INVESTIGATION_ID, lockedClue.id)
+      ).rejects.toThrow("Evidence record not found or restricted");
+    });
+
+    // AUDIT 4: Re-sharing by recipient (indirect access) is rejected
+    it("should reject evidence sharing by an operative who only received it via a previous share", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_OTHER_PROFILE_ID,
+      } as any);
+
+      // getEvidenceDetail returns accessType: "SHARED" (indirect)
+      vi.spyOn(EvidenceService, "getEvidenceDetail").mockResolvedValueOnce({
+        id: MOCK_CLUE_ID_1,
+        isShareable: true,
+        accessType: "SHARED", // Operative only has shared access!
+      } as any);
+
+      await expect(
+        EvidenceService.shareEvidence(
+          MOCK_OTHER_USER_ID,
+          MOCK_INVESTIGATION_ID,
+          MOCK_CLUE_ID_1,
+          "00000000-0000-4000-a000-000000000099"
+        )
+      ).rejects.toThrow("Only operatives with direct assignment or clearance may share");
+    });
+
+    // AUDIT 4: RevokeEvidenceShare rejects unauthorized callers
+    it("should reject revokeEvidenceShare if caller is not the sharing operative", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_OTHER_PROFILE_ID, // not the sender
+      } as any);
+
+      const mockInv = createMockInvestigation({
+        participants: [
+          {
+            id: "part_other",
+            investigationId: MOCK_INVESTIGATION_ID,
+            playerId: MOCK_OTHER_PROFILE_ID,
+            status: ParticipantStatus.ACTIVE,
+          },
+        ],
+      });
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValue(mockInv as any);
+
+      vi.spyOn(prisma.evidenceShare, "findUnique").mockResolvedValue({
+        id: "share_123",
+        investigationId: MOCK_INVESTIGATION_ID,
+        sharingPlayerId: MOCK_PROFILE_ID, // Shared by lead operative, not other
+        revokedAt: null,
+      } as any);
+
+      await expect(
+        EvidenceService.revokeEvidenceShare(
+          MOCK_OTHER_USER_ID,
+          MOCK_INVESTIGATION_ID,
+          "00000000-0000-4000-a000-000000000088"
+        )
+      ).rejects.toThrow("Only the operative who shared this intelligence may revoke it");
+    });
+
+    // AUDIT 2: Private note isolation after sharing
+    it("should ensure private notes remain strictly isolated when evidence is shared", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_OTHER_PROFILE_ID, // Recipient viewing shared clue
+      } as any);
+
+      const mockInv = createMockInvestigation({
+        participants: [
+          {
+            id: "part_recipient",
+            investigationId: MOCK_INVESTIGATION_ID,
+            playerId: MOCK_OTHER_PROFILE_ID,
+            status: ParticipantStatus.ACTIVE,
+          },
+        ],
+      });
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValue(mockInv as any);
+
+      const clue = createMockClue({
+        assignmentStrategy: ClueStrategy.ASYMMETRIC_EXCLUSIVE,
+      });
+      vi.spyOn(prisma.clue, "findUnique").mockResolvedValue(clue as any);
+      vi.spyOn(prisma.clueAssignment, "findUnique").mockResolvedValue(null);
+
+      // Active share from lead operative to other operative
+      vi.spyOn(prisma.evidenceShare, "findFirst").mockResolvedValue({
+        id: "share_123",
+        sharedAt: new Date(),
+      } as any);
+
+      // The findUnique for privateNote must query with recipient's profile ID
+      const noteSpy = vi.spyOn(prisma.evidenceNote, "findUnique").mockResolvedValue(null);
+
+      const detail = await EvidenceService.getEvidenceDetail(
+        MOCK_OTHER_USER_ID,
+        MOCK_INVESTIGATION_ID,
+        clue.id
+      );
+
+      // Recipient has access via SHARED
+      expect(detail.accessType).toBe("SHARED");
+      // But recipient sees NO note from the sharer!
+      expect(detail.myNote).toBeNull();
+      // Verified note query was bound to recipient's profile ID
+      expect(noteSpy).toHaveBeenCalledWith({
+        where: {
+          investigationId_clueId_playerId: {
+            investigationId: MOCK_INVESTIGATION_ID,
+            clueId: clue.id,
+            playerId: MOCK_OTHER_PROFILE_ID,
+          },
+        },
+      });
+    });
+
+    // AUDIT 2: Note deletion removes the operative's note
+    it("should successfully delete an operative's private note", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_PROFILE_ID,
+      } as any);
+      vi.spyOn(EvidenceService, "getEvidenceDetail").mockResolvedValueOnce({
+        id: MOCK_CLUE_ID_1,
+      } as any);
+
+      vi.spyOn(prisma.evidenceNote, "findUnique").mockResolvedValueOnce({
+        id: "note_to_delete",
+      } as any);
+      const deleteSpy = vi.spyOn(prisma.evidenceNote, "delete").mockResolvedValueOnce({
+        id: "note_to_delete",
+      } as any);
+
+      await EvidenceService.deleteEvidenceNote(MOCK_USER_ID, MOCK_INVESTIGATION_ID, MOCK_CLUE_ID_1);
+
+      expect(deleteSpy).toHaveBeenCalledWith({
+        where: { id: "note_to_delete" },
+      });
+    });
+
+    // AUDIT 3: Unauthorized asset streaming returns 404
+    it("should reject getEvidenceAsset when operative does not have access to the clue", async () => {
+      vi.spyOn(EvidenceService, "getEvidenceDetail").mockRejectedValueOnce(
+        new AppError("Evidence record not found or restricted", 404, "EVIDENCE_NOT_FOUND")
+      );
+
+      await expect(
+        EvidenceService.getEvidenceAsset(
+          MOCK_USER_ID,
+          MOCK_INVESTIGATION_ID,
+          MOCK_CLUE_ID_1,
+          "00000000-0000-4000-a000-000000000077"
+        )
+      ).rejects.toThrow("Evidence record not found or restricted");
     });
   });
 });

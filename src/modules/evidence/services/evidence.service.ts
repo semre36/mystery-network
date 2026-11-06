@@ -159,19 +159,17 @@ export class EvidenceService {
         }
       } else {
         // ASYMMETRIC_EXCLUSIVE, RANDOM, ROLE_BASED
-        // Assign to the first eligible operative (lead investigator or rotating operative)
-        const primaryPlayerId = playerIds[0];
-        const existing = await dbClient.clueAssignment.findUnique({
+        // Ensure this exclusive clue is not already assigned to ANY operative in this investigation
+        const existingInInvestigation = await dbClient.clueAssignment.findFirst({
           where: {
-            investigationId_clueId_playerId: {
-              investigationId,
-              clueId: clue.id,
-              playerId: primaryPlayerId,
-            },
+            investigationId,
+            clueId: clue.id,
           },
         });
 
-        if (!existing) {
+        if (!existingInInvestigation) {
+          // Assign to the primary operative in the target list
+          const primaryPlayerId = playerIds[0];
           await dbClient.clueAssignment.create({
             data: {
               investigationId,
@@ -687,7 +685,47 @@ export class EvidenceService {
   }
 
   /**
+   * Deletes a private note on an evidence record.
+   * Strictly isolated to the authenticated operative and current investigation.
+   */
+  public static async deleteEvidenceNote(
+    userId: string,
+    investigationId: string,
+    clueId: string
+  ): Promise<void> {
+    const playerId = await this.getPlayerProfileId(userId);
+    await this.getEvidenceDetail(userId, investigationId, clueId);
+
+    const existing = await prisma.evidenceNote.findUnique({
+      where: {
+        investigationId_clueId_playerId: {
+          investigationId,
+          clueId,
+          playerId,
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new AppError("Evidence note not found", 404, "NOTE_NOT_FOUND");
+    }
+
+    await prisma.evidenceNote.delete({
+      where: { id: existing.id },
+    });
+
+    logger.info("Deleted private evidence note", {
+      investigationId,
+      clueId,
+      playerId,
+      noteId: existing.id,
+    });
+  }
+
+  /**
    * Explicitly shares eligible evidence with another participant in the same investigation.
+   * Requires that the sender has direct access (ASSIGNED or INVESTIGATION_WIDE) and
+   * runs in a concurrency-safe transaction to prevent duplicate active shares.
    */
   public static async shareEvidence(
     userId: string,
@@ -703,6 +741,16 @@ export class EvidenceService {
         "This classified evidence is marked non-shareable by intelligence protocol",
         400,
         "EVIDENCE_NOT_SHAREABLE"
+      );
+    }
+
+    // AUDIT: Sender must have direct access (ASSIGNED or INVESTIGATION_WIDE).
+    // Operatives who received evidence via a share cannot re-share it.
+    if (detail.accessType === "SHARED") {
+      throw new AppError(
+        "Only operatives with direct assignment or clearance may share this intelligence",
+        403,
+        "DIRECT_ACCESS_REQUIRED"
       );
     }
 
@@ -730,85 +778,169 @@ export class EvidenceService {
           "RECIPIENT_NOT_IN_INVESTIGATION"
         );
       }
+    }
 
-      // Prevent duplicate active shares
-      const existingShare = await prisma.evidenceShare.findFirst({
+    // Execute duplicate check, anchor assignment, and share creation inside an interactive transaction
+    return await prisma.$transaction(async (tx) => {
+      if (recipientPlayerId) {
+        const existingShare = await tx.evidenceShare.findFirst({
+          where: {
+            investigationId,
+            clueAssignment: { clueId },
+            recipientPlayerId,
+            revokedAt: null,
+          },
+        });
+
+        if (existingShare) {
+          throw new AppError(
+            "This intelligence has already been shared with this operative",
+            400,
+            "DUPLICATE_SHARE"
+          );
+        }
+      }
+
+      // Ensure sender has a ClueAssignment record to anchor the share
+      let assignment = await tx.clueAssignment.findUnique({
         where: {
-          investigationId,
-          clueAssignment: { clueId },
-          recipientPlayerId,
-          revokedAt: null,
+          investigationId_clueId_playerId: {
+            investigationId,
+            clueId,
+            playerId,
+          },
         },
       });
 
-      if (existingShare) {
-        throw new AppError(
-          "This intelligence has already been shared with this operative",
-          400,
-          "DUPLICATE_SHARE"
-        );
+      if (!assignment) {
+        assignment = await tx.clueAssignment.create({
+          data: {
+            investigationId,
+            clueId,
+            playerId,
+            status: AssignmentStatus.SHARED,
+            assignedAt: new Date(),
+          },
+        });
       }
-    }
 
-    // Ensure sender has a ClueAssignment record to anchor the share
-    let assignment = await prisma.clueAssignment.findUnique({
-      where: {
-        investigationId_clueId_playerId: {
-          investigationId,
-          clueId,
-          playerId,
-        },
-      },
-    });
-
-    if (!assignment) {
-      assignment = await prisma.clueAssignment.create({
+      const share = await tx.evidenceShare.create({
         data: {
           investigationId,
-          clueId,
-          playerId,
-          status: AssignmentStatus.SHARED,
-          assignedAt: new Date(),
+          clueAssignmentId: assignment.id,
+          sharingPlayerId: playerId,
+          recipientPlayerId: recipientPlayerId ?? null,
+          sharedAt: new Date(),
+        },
+        include: {
+          sharingPlayer: { select: { codename: true } },
+          recipientPlayer: { select: { codename: true } },
         },
       });
+
+      // Update assignment status to SHARED
+      await tx.clueAssignment.update({
+        where: { id: assignment.id },
+        data: { status: AssignmentStatus.SHARED },
+      });
+
+      logger.info("Evidence shared successfully", {
+        investigationId,
+        clueId,
+        sharingPlayerId: playerId,
+        recipientPlayerId,
+        shareId: share.id,
+      });
+
+      return {
+        id: share.id,
+        sharedAt: share.sharedAt.toISOString(),
+        sharingPlayerCodename: share.sharingPlayer.codename,
+        recipientPlayerCodename: share.recipientPlayer
+          ? share.recipientPlayer.codename
+          : "All Operatives",
+        isMine: true,
+      };
+    });
+  }
+
+  /**
+   * Revokes an active evidence share.
+   * Only the sharing operative may revoke their transmission.
+   */
+  public static async revokeEvidenceShare(
+    userId: string,
+    investigationId: string,
+    shareId: string
+  ): Promise<void> {
+    const playerId = await this.getPlayerProfileId(userId);
+    await this.verifyInvestigationParticipant(investigationId, playerId);
+
+    if (!UUID_REGEX.test(shareId)) {
+      throw new AppError("Invalid share identifier", 400, "INVALID_SHARE_ID");
     }
 
-    const share = await prisma.evidenceShare.create({
-      data: {
-        investigationId,
-        clueAssignmentId: assignment.id,
-        sharingPlayerId: playerId,
-        recipientPlayerId: recipientPlayerId ?? null,
-        sharedAt: new Date(),
-      },
-      include: {
-        sharingPlayer: { select: { codename: true } },
-        recipientPlayer: { select: { codename: true } },
-      },
+    const share = await prisma.evidenceShare.findUnique({
+      where: { id: shareId },
     });
 
-    // Update assignment status to SHARED
-    await prisma.clueAssignment.update({
-      where: { id: assignment.id },
-      data: { status: AssignmentStatus.SHARED },
+    if (!share || share.investigationId !== investigationId) {
+      throw new AppError("Evidence share record not found", 404, "SHARE_NOT_FOUND");
+    }
+
+    if (share.sharingPlayerId !== playerId) {
+      throw new AppError(
+        "Only the operative who shared this intelligence may revoke it",
+        403,
+        "FORBIDDEN"
+      );
+    }
+
+    if (share.revokedAt) {
+      throw new AppError("Evidence share is already revoked", 400, "SHARE_ALREADY_REVOKED");
+    }
+
+    await prisma.evidenceShare.update({
+      where: { id: shareId },
+      data: { revokedAt: new Date() },
     });
 
-    logger.info("Evidence shared successfully", {
+    logger.info("Evidence share revoked", {
       investigationId,
-      clueId,
-      sharingPlayerId: playerId,
-      recipientPlayerId,
-      shareId: share.id,
+      shareId,
+      revokingPlayerId: playerId,
+    });
+  }
+
+  /**
+   * Verifies access and retrieves metadata for a specific evidence asset.
+   */
+  public static async getEvidenceAsset(
+    userId: string,
+    investigationId: string,
+    clueId: string,
+    assetId: string
+  ): Promise<{
+    asset: any;
+  }> {
+    // Verifies user is in investigation and has access to this clue and chapter is unlocked
+    await this.getEvidenceDetail(userId, investigationId, clueId);
+
+    if (!UUID_REGEX.test(assetId)) {
+      throw new AppError("Invalid asset identifier", 400, "INVALID_ASSET_ID");
+    }
+
+    const asset = await prisma.evidenceAsset.findFirst({
+      where: {
+        id: assetId,
+        clueId,
+      },
     });
 
-    return {
-      id: share.id,
-      sharedAt: share.sharedAt.toISOString(),
-      sharingPlayerCodename: share.sharingPlayer.codename,
-      recipientPlayerCodename: share.recipientPlayer
-        ? share.recipientPlayer.codename
-        : "All Operatives",
-      isMine: true,
-    };
+    if (!asset) {
+      throw new AppError("Evidence asset record not found", 404, "ASSET_NOT_FOUND");
+    }
+
+    return { asset };
   }
 }

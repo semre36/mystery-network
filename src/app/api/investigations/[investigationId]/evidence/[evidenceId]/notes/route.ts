@@ -29,6 +29,49 @@ export async function PATCH(
   return handleSaveNote(request, context);
 }
 
+/**
+ * DELETE /api/investigations/[investigationId]/evidence/[evidenceId]/notes
+ * Deletes private investigator annotation.
+ */
+export async function DELETE(
+  _request: NextRequest,
+  context: { params: Promise<{ investigationId: string; evidenceId: string }> }
+): Promise<NextResponse> {
+  try {
+    const user = await requireAuthenticatedUser();
+    const { investigationId, evidenceId } = await context.params;
+
+    await EvidenceService.deleteEvidenceNote(user.id, investigationId, evidenceId);
+
+    return NextResponse.json({
+      ok: true,
+      message: "Evidence note deleted successfully",
+    });
+  } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          code: error.code,
+        },
+        { status: error.statusCode }
+      );
+    }
+
+    logger.error("Failed to delete evidence note", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    return NextResponse.json(
+      {
+        error: "Internal server error deleting evidence note",
+        code: "INTERNAL_ERROR",
+      },
+      { status: 500 }
+    );
+  }
+}
+
 async function handleSaveNote(
   request: NextRequest,
   context: { params: Promise<{ investigationId: string; evidenceId: string }> }
