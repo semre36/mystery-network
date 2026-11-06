@@ -19,8 +19,8 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 | **09** | **Team Collaboration**             |                                               **Completed**                                               | Squad formation, invite codes, squad detective rooms, safe clue sharing channels.                               |
 | **10** | **Interactive Puzzles**            |                                               **Completed**                                               | Minigames, cipher decoders, cryptograms, logic puzzles, server-side validation.                                 |
 | **11** | **Investigation Board**            |                                               **Completed**                                               | Interactive corkboard canvas, evidence relationships, timeline forensics, and hypothesis formulation.           |
-| **12** | Submissions and Rewards            |                                                  Pending                                                  | Final theory filing, evidence citation, evaluation scoring, XP, detective badges.                               |
-| **13** | Admin Dashboard                    |                                                  Pending                                                  | Authoring studio for cases, content moderation, user auditing, system metrics.                                  |
+| **12** | **Submissions and Rewards**        |                                               **Completed**                                               | Final theory filing, evidence citation, evaluation scoring, XP, detective badges.                               |
+| **13** | **Admin Dashboard & CMS**          |                                               **Completed**                                               | Authoring studio for cases, content moderation, user auditing, system metrics.                                  |
 | **14** | Testing, Optimization & Deployment |                                                  Pending                                                  | End-to-end load testing, security audits, caching optimization, production deployment.                          |
 
 ---
@@ -402,3 +402,43 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 - [x] Comprehensive automated test suite created (`tests/submissions.test.ts` — 26 tests; 297 total tests passing across all 13 test files).
 - [x] Architecture documentation authored (`docs/SUBMISSIONS_AND_REWARDS.md`).
 - [x] Zero regressions across Phase 01–11 features; strict TypeScript compilation, linting, and Next.js production build verified.
+
+---
+
+## Phase 13: Admin Dashboard & Content Management System (CMS) — Acceptance Checklist
+
+- [x] Database schema enhanced in `prisma/schema.prisma`:
+  - `AdminUserRole`: join table linking `User` to `AdminRole`.
+  - `SystemSetting`: platform configuration parameters and maintenance mode toggles.
+  - `User`: added moderation columns `suspensionReason String?` and `suspendedAt DateTime?`.
+- [x] Neon PostgreSQL migration deployed (`20261106183500_add_admin_user_roles_and_settings`). Total 10 migrations active in Neon.
+- [x] Canonical permissions (37 actions) and default roles (`SUPER_ADMIN`, `CASE_AUTHOR`, `MODERATOR`) seeded in Neon (`prisma/seed.ts`).
+- [x] Centralized server-side RBAC guard implemented (`AdminGuard`):
+  - `requireAdmin`: enforces authentication, active user status, and admin role presence.
+  - `requirePermission` & `requireAnyPermission`: granular permission checking with automatic SUPER_ADMIN satisfaction.
+  - `assertNotDemotingLastSuperAdmin`: transactional protection preventing self-lockout or demotion of the last active SUPER_ADMIN.
+- [x] Storyline CMS implemented (`AdminContentService`):
+  - Campaigns: create, list, inspect, update, publish, archive.
+  - Mystery Cases: create, list, inspect, update, publish, archive.
+  - Protected Solution Config: `solutionConfig` management strictly segregated from ordinary `CASE_UPDATE` permission via `CASE_MANAGE_SOLUTION`.
+  - Chapters, Suspects, Forensic Clues, and Interactive Puzzles authoring.
+  - Puzzle answers and secret configuration updates strictly segregated via `PUZZLE_MANAGE_SECRET`.
+- [x] Actionable Publication Validation (`validateCaseForPublication`):
+  - Enforces chapters, suspects, clues, puzzle solution hashes, campaign state, and evaluation criteria before publishing.
+  - Returns actionable validation error arrays (HTTP 422 `PUBLICATION_VALIDATION_FAILED`) on incomplete content.
+- [x] Privilege Escalation Protection in Role Management:
+  - Role creation, modification, and assignment restricted to permissions the acting administrator already possesses.
+  - Appointing `SUPER_ADMIN` strictly restricted to existing Super Administrators.
+- [x] Immutable Administrative Audit Ledger (`AdminAuditService`):
+  - Mutations execute within atomic database transactions alongside audit records.
+  - Automated recursive redaction of sensitive keys (`token`, `password`, `secretConfiguration`, `solutionHash`, `initData`, `cookie`).
+  - Read-only historical ledger (`/api/admin/audit-logs`) with no update or delete APIs.
+- [x] Super Administrator Bootstrap:
+  - CLI one-time bootstrap script (`npm run admin:bootstrap <target>`).
+  - API bootstrap route protected by secret and permanently locked once a SUPER_ADMIN exists (`BOOTSTRAP_PERMANENTLY_DISABLED`).
+- [x] 33 REST API route handlers implemented under `src/app/api/admin/*`.
+- [x] Responsive dark tactical command center frontend implemented under `src/app/(admin)/admin`:
+  - Overview Dashboard, Operatives Directory, Operative Dossier, Campaigns CMS, Cases CMS, Case Blueprint Editor, Live Investigations Monitor, Accolades Catalog, XP Ledger & Adjustments, Telemetry & Analytics, Audit Log Inspector, Roles & RBAC Governance, System Settings.
+- [x] Automated test suite created (`tests/admin.test.ts` — 18 tests; 315 total tests passing across all 14 test files).
+- [x] Architecture documentation authored (`docs/ADMIN_DASHBOARD.md`).
+- [x] Quality gates passed: Prisma validated (`npx prisma validate`), migrations verified (`npx prisma migrate status`), TypeScript strict mode (0 errors), all 315 tests passing, and Next.js Turbopack production build succeeded.

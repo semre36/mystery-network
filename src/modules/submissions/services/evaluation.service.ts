@@ -169,9 +169,7 @@ export class EvaluationService {
         const perfectBonus = isPerfect ? rewards.perfectBonusXP : 0;
         const totalPerPlayer = earnedBaseXP + perfectBonus;
 
-        const activeParticipants = investigation.participants.filter(
-          (p) => p.status === "ACTIVE"
-        );
+        const activeParticipants = investigation.participants.filter((p) => p.status === "ACTIVE");
 
         for (const participant of activeParticipants) {
           // Award Base Case XP
@@ -315,7 +313,10 @@ export class EvaluationService {
     );
     const timelineRatio =
       solutionConfig.timelineKeywords?.length > 0
-        ? Math.min(1, timelineMatches.length / Math.ceil(solutionConfig.timelineKeywords.length * 0.5))
+        ? Math.min(
+            1,
+            timelineMatches.length / Math.ceil(solutionConfig.timelineKeywords.length * 0.5)
+          )
         : 1;
     const timelineScore = Math.round(timelineRatio * criteria.timelineWeight);
 
@@ -418,7 +419,9 @@ export class EvaluationService {
     }
 
     if (timelineScore >= criteria.timelineWeight * 0.7) {
-      correctConclusions.push("Sequence of events aligns closely with recorded terminal telemetry.");
+      correctConclusions.push(
+        "Sequence of events aligns closely with recorded terminal telemetry."
+      );
     } else {
       missedReasoningAreas.push(
         "Timeline chronology contains discrepancies regarding event window order."
@@ -476,7 +479,9 @@ export class EvaluationService {
 
     const unsupportedCitations = Array.from(citedSupportingCodes)
       .concat(Array.from(citedContradictingCodes))
-      .filter((code) => !requiredSupporting.includes(code) && !requiredContradicting.includes(code));
+      .filter(
+        (code) => !requiredSupporting.includes(code) && !requiredContradicting.includes(code)
+      );
 
     const feedbackSummary = isPerfect
       ? "Flawless forensic deduction. The Syndicate's clandestine network has been thoroughly exposed."

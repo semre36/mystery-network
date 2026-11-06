@@ -39,7 +39,18 @@ export async function requireAuthenticatedUser(): Promise<SafeUserProfile> {
   const sessionResult = await getCurrentSession();
 
   if (!sessionResult.authenticated) {
+    if (sessionResult.reason?.startsWith("Account status is")) {
+      throw new AppError(`Access denied: ${sessionResult.reason}`, 403, "ACCOUNT_INACTIVE");
+    }
     throw new AppError("Authentication required to access this resource", 401, "UNAUTHORIZED");
+  }
+
+  if (sessionResult.user.status === "BANNED" || sessionResult.user.status === "SUSPENDED") {
+    throw new AppError(
+      `Access denied: Account status is ${sessionResult.user.status}`,
+      403,
+      "ACCOUNT_INACTIVE"
+    );
   }
 
   return sessionResult.user;

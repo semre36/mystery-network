@@ -126,3 +126,29 @@
   - A strict 10 MB (`10,485,760 bytes`) file size limit is enforced.
   - Storage keys are cryptographically generated UUIDs. File names are stripped of path components to prevent directory traversal (`../`) attacks.
   - No raw cloud storage keys, S3 credentials, or internal bucket names are exposed to clients.
+
+---
+
+## 11. Administrative & Content Management System Security (Phase 13)
+
+- **Granular Server-Side RBAC**: Every administrative endpoint strictly enforces permissions via `AdminGuard`. Client-side route protections exist purely for UI navigation; all operations require database-verified permission clearance.
+- **Separation of Content Editing from Protected Solution Matrix**:
+  - `CASE_UPDATE` grants permission to edit scenario titles, briefings, duration, and metadata, but strictly denies access to the protected `solutionConfig`.
+  - Reading or writing `solutionConfig` requires explicit `CASE_MANAGE_SOLUTION` clearance.
+  - Non-authorized calls to case detail endpoints have `solutionConfig` stripped from the returned DTO.
+  - Similarly, puzzle answers and secret configurations require `PUZZLE_MANAGE_SECRET`.
+- **Last Active SUPER_ADMIN Transactional Protection**:
+  - Revoking `SUPER_ADMIN`, suspending, or banning an account transactionally verifies that at least one other active `SUPER_ADMIN` remains. If only one remains, the mutation aborts with `LAST_SUPER_ADMIN_PROTECTION`.
+- **Privilege Escalation Prevention**:
+  - Non-SUPER_ADMIN administrators cannot assign, create, or modify roles granting permissions beyond those the acting administrator currently holds (`PRIVILEGE_ESCALATION_DENIED`).
+  - Appointing or revoking `SUPER_ADMIN` strictly requires existing `SUPER_ADMIN` clearance.
+- **Publication Validation Integrity**:
+  - Transitioning a case to `PUBLISHED` validates that all structural components (chapters, suspects, clues, cryptographic puzzle solution hashes, campaign link, and evaluation criteria) are complete and valid (`PUBLICATION_VALIDATION_FAILED`).
+- **Immutable Audit Ledger & Secret Redaction**:
+  - All administrative mutations are recorded inside atomic database transactions alongside their audit records.
+  - Audit logging automatically and recursively redacts sensitive fields (`password`, `token`, `secretConfiguration`, `solutionHash`, `initData`, `cookie`).
+  - The audit log is append-only and provides no update or delete capabilities.
+- **One-Time Super Admin Bootstrap & Permanent Lockout**:
+  - Initial Super Admin bootstrap is performed via secure server CLI (`npm run admin:bootstrap`).
+  - If triggered via API, it requires constant-time verified `ADMIN_BOOTSTRAP_SECRET`.
+  - Once any `SUPER_ADMIN` exists in the database, the bootstrap procedure is permanently disabled (`BOOTSTRAP_PERMANENTLY_DISABLED`).

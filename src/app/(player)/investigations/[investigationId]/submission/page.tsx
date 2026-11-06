@@ -100,4 +100,3 @@ export default async function SubmissionPage({ params }: SubmissionPageProps) {
     </div>
   );
 }
-

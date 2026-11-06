@@ -89,6 +89,10 @@ export class SessionService {
       return { authenticated: false, reason: "Session has expired" };
     }
 
+    if (session.user.status === "BANNED" || session.user.status === "SUSPENDED") {
+      return { authenticated: false, reason: `Account status is ${session.user.status}` };
+    }
+
     // Touch lastActivityAt if older than 5 minutes to avoid excessive DB writes
     const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
     if (session.lastActivityAt.getTime() < fiveMinutesAgo) {

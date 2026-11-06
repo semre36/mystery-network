@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { prisma } from "@/server/infrastructure/database";
 import { logger } from "@/lib/logger";
+import { AppError } from "@/lib/errors/app-error";
 import { DEFAULT_PLAYER_LEVEL, DEFAULT_PLAYER_XP } from "../constants/auth.constants";
 import type { ValidatedTelegramAuth } from "../types/auth.types";
 import type { User, PlayerProfile } from "@prisma/client";
@@ -39,6 +40,14 @@ export class PlayerProvisioningService {
     });
 
     if (existingUser) {
+      if (existingUser.status === "BANNED" || existingUser.status === "SUSPENDED") {
+        throw new AppError(
+          `Account access denied: Account status is ${existingUser.status}`,
+          403,
+          "ACCOUNT_INACTIVE"
+        );
+      }
+
       // Returning player: update only safe identity attributes and lastActiveAt.
       // NEVER overwrite custom codename, preferences, xp, or level.
       const updatedUser = await prisma.user.update({

@@ -349,6 +349,7 @@ describe("Interactive Puzzle Engine & Investigation Challenges (Phase 10)", () =
       const mockPuzzle = createMockPuzzle();
       vi.spyOn(prisma.puzzle, "findMany").mockResolvedValue([mockPuzzle] as any);
       vi.spyOn(prisma.puzzleProgress, "findMany").mockResolvedValue([]);
+      vi.spyOn(prisma.puzzleAttempt, "findMany").mockResolvedValue([]);
       vi.spyOn(prisma.puzzleAttempt, "groupBy").mockResolvedValue([]);
 
       const puzzles = await PuzzleService.getPuzzles(MOCK_USER_ID, MOCK_INVESTIGATION_ID);

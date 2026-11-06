@@ -1,11 +1,7 @@
 import { prisma } from "@/server/infrastructure/database";
 import { AppError } from "@/lib/errors/app-error";
 import { logger } from "@/lib/logger";
-import {
-  SubmissionStatus,
-  InvestigationStatus,
-  PlayMode,
-} from "@prisma/client";
+import { SubmissionStatus, InvestigationStatus, PlayMode } from "@prisma/client";
 import { SubmissionGuard } from "../guards/submission.guard";
 import { EvaluationService } from "./evaluation.service";
 import type {
@@ -26,10 +22,7 @@ export class SubmissionService {
     investigationId: string,
     userId: string
   ): Promise<SafeCaseSubmissionDto | null> {
-    const { investigation } = await SubmissionGuard.verifySubmissionAccess(
-      investigationId,
-      userId
-    );
+    const { investigation } = await SubmissionGuard.verifySubmissionAccess(investigationId, userId);
 
     const submission = await prisma.caseSubmission.findFirst({
       where: { investigationId: investigation.id },
@@ -72,7 +65,10 @@ export class SubmissionService {
     }
 
     // Validate references
-    if (input.primaryCharacterId || (input.additionalCharacterIds && input.additionalCharacterIds.length > 0)) {
+    if (
+      input.primaryCharacterId ||
+      (input.additionalCharacterIds && input.additionalCharacterIds.length > 0)
+    ) {
       await SubmissionGuard.validateCharacterReferences(
         investigation.caseId,
         input.primaryCharacterId,
@@ -169,8 +165,10 @@ export class SubmissionService {
     userId: string,
     input: FinalSubmissionInput
   ) {
-    const { investigation, playerId, memberRole } =
-      await SubmissionGuard.verifySubmissionAccess(investigationId, userId);
+    const { investigation, playerId, memberRole } = await SubmissionGuard.verifySubmissionAccess(
+      investigationId,
+      userId
+    );
 
     // 1. Verify submit permission (e.g. Lead Investigator in squad)
     SubmissionGuard.verifySubmitPermission(investigation.playMode, memberRole);
@@ -298,10 +296,7 @@ export class SubmissionService {
     investigationId: string,
     userId: string
   ): Promise<SafeInvestigationResultDto> {
-    const { investigation } = await SubmissionGuard.verifySubmissionAccess(
-      investigationId,
-      userId
-    );
+    const { investigation } = await SubmissionGuard.verifySubmissionAccess(investigationId, userId);
 
     const submission = await prisma.caseSubmission.findFirst({
       where: { investigationId: investigation.id, status: SubmissionStatus.EVALUATED },

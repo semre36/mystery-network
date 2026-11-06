@@ -36,4 +36,3 @@ export interface PlayerProgressionDto {
   totalAchievementsCount: number;
   recentTransactions: SafeXPTransactionDto[];
 }
-

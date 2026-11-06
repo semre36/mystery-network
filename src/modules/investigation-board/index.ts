@@ -6,4 +6,3 @@ export * from "./services/board-connection.service";
 export * from "./services/timeline.service";
 export * from "./services/theory.service";
 export * from "./validation/board.schema";
-

@@ -27,7 +27,10 @@ async function main() {
     { action: "ROLE_VIEW", description: "Inspect administrative roles and assignments" },
     { action: "ROLE_CREATE", description: "Define new operational administrator roles" },
     { action: "ROLE_UPDATE", description: "Modify role permissions and parameters" },
-    { action: "ROLE_ASSIGN", description: "Assign or revoke administrative roles on user accounts" },
+    {
+      action: "ROLE_ASSIGN",
+      description: "Assign or revoke administrative roles on user accounts",
+    },
     { action: "CAMPAIGN_VIEW", description: "Inspect published and draft campaigns" },
     { action: "CAMPAIGN_CREATE", description: "Author new campaign story arcs" },
     { action: "CAMPAIGN_UPDATE", description: "Edit campaign metadata, briefing, and covers" },
@@ -35,26 +38,67 @@ async function main() {
     { action: "CAMPAIGN_ARCHIVE", description: "Archive completed or decommissioned campaigns" },
     { action: "CASE_VIEW", description: "Inspect all cases including drafts and review states" },
     { action: "CASE_CREATE", description: "Author new mystery case scenarios" },
-    { action: "CASE_UPDATE", description: "Edit case briefings, difficulty, duration, and structure" },
+    {
+      action: "CASE_UPDATE",
+      description: "Edit case briefings, difficulty, duration, and structure",
+    },
+    {
+      action: "CASE_MANAGE_SOLUTION",
+      description: "Read, edit, and configure protected case solution configs and answers",
+    },
     { action: "CASE_PUBLISH", description: "Publish cases to the operative network" },
     { action: "CASE_ARCHIVE", description: "Archive cases from public discovery" },
     { action: "CHAPTER_MANAGE", description: "Create, reorder, and configure case acts/chapters" },
-    { action: "CHARACTER_MANAGE", description: "Author fictional case suspects and persons of interest" },
+    {
+      action: "CHARACTER_MANAGE",
+      description: "Author fictional case suspects and persons of interest",
+    },
     { action: "EVIDENCE_VIEW", description: "Inspect forensic clues and evidence distribution" },
     { action: "EVIDENCE_CREATE", description: "Author new forensic clues and attach media assets" },
-    { action: "EVIDENCE_UPDATE", description: "Edit clue parameters, types, and distribution policies" },
+    {
+      action: "EVIDENCE_UPDATE",
+      description: "Edit clue parameters, types, and distribution policies",
+    },
     { action: "EVIDENCE_DELETE", description: "Decommission or delete unassigned forensic clues" },
-    { action: "PUZZLE_VIEW", description: "Inspect interactive ciphers, codes, and logic challenges" },
-    { action: "PUZZLE_CREATE", description: "Author new interactive puzzle minigames and multi-stage challenges" },
-    { action: "PUZZLE_UPDATE", description: "Configure puzzle cipher text, hints, and secret solutions" },
+    {
+      action: "PUZZLE_VIEW",
+      description: "Inspect interactive ciphers, codes, and logic challenges",
+    },
+    {
+      action: "PUZZLE_CREATE",
+      description: "Author new interactive puzzle minigames and multi-stage challenges",
+    },
+    { action: "PUZZLE_UPDATE", description: "Configure puzzle cipher text, hints, and parameters" },
+    {
+      action: "PUZZLE_MANAGE_SECRET",
+      description: "Inspect and update protected puzzle secret configurations and answer hashes",
+    },
     { action: "PUZZLE_DELETE", description: "Delete puzzle challenges from chapters" },
-    { action: "INVESTIGATION_VIEW", description: "Monitor active and completed investigation sessions" },
-    { action: "INVESTIGATION_MANAGE", description: "Manage investigation states and operational overrides" },
-    { action: "ACHIEVEMENT_MANAGE", description: "Configure platform milestone accolades and criteria" },
-    { action: "REWARD_MANAGE", description: "Inspect XP ledgers and execute audited XP adjustments" },
-    { action: "ANALYTICS_VIEW", description: "Inspect aggregated operational analytics and telemetry" },
+    {
+      action: "INVESTIGATION_VIEW",
+      description: "Monitor active and completed investigation sessions",
+    },
+    {
+      action: "INVESTIGATION_MANAGE",
+      description: "Manage investigation states and operational overrides",
+    },
+    {
+      action: "ACHIEVEMENT_MANAGE",
+      description: "Configure platform milestone accolades and criteria",
+    },
+    {
+      action: "REWARD_MANAGE",
+      description: "Inspect XP ledgers and execute audited XP adjustments",
+    },
+    {
+      action: "ANALYTICS_VIEW",
+      description: "Inspect aggregated operational analytics and telemetry",
+    },
     { action: "AUDIT_LOG_VIEW", description: "Audit administrative actions and security history" },
-    { action: "SYSTEM_SETTINGS_MANAGE", description: "Configure platform operational parameters and maintenance modes" },
+    {
+      action: "SYSTEM_SETTINGS_MANAGE",
+      description: "Configure platform operational parameters and maintenance modes",
+    },
   ];
 
   for (const perm of permissions) {
@@ -76,7 +120,9 @@ async function main() {
 
   const caseAuthorRole = await prisma.adminRole.upsert({
     where: { name: "CASE_AUTHOR" },
-    update: { description: "Storyline architect: author campaigns, cases, chapters, clues, and puzzles" },
+    update: {
+      description: "Storyline architect: author campaigns, cases, chapters, clues, and puzzles",
+    },
     create: {
       name: "CASE_AUTHOR",
       description: "Storyline architect: author campaigns, cases, chapters, clues, and puzzles",
@@ -85,7 +131,9 @@ async function main() {
 
   const moderatorRole = await prisma.adminRole.upsert({
     where: { name: "MODERATOR" },
-    update: { description: "Community moderator: manage players, view sessions, and monitor audit logs" },
+    update: {
+      description: "Community moderator: manage players, view sessions, and monitor audit logs",
+    },
     create: {
       name: "MODERATOR",
       description: "Community moderator: manage players, view sessions, and monitor audit logs",
@@ -109,15 +157,17 @@ async function main() {
       },
     });
 
-    // CASE_AUTHOR gets CMS creation permissions
+    // CASE_AUTHOR gets CMS creation permissions (excluding protected solution secrets)
     if (
-      perm.action.startsWith("CAMPAIGN_") ||
-      perm.action.startsWith("CASE_") ||
-      perm.action === "CHAPTER_MANAGE" ||
-      perm.action === "CHARACTER_MANAGE" ||
-      perm.action.startsWith("EVIDENCE_") ||
-      perm.action.startsWith("PUZZLE_") ||
-      perm.action === "DASHBOARD_VIEW"
+      (perm.action.startsWith("CAMPAIGN_") ||
+        perm.action.startsWith("CASE_") ||
+        perm.action === "CHAPTER_MANAGE" ||
+        perm.action === "CHARACTER_MANAGE" ||
+        perm.action.startsWith("EVIDENCE_") ||
+        perm.action.startsWith("PUZZLE_") ||
+        perm.action === "DASHBOARD_VIEW") &&
+      perm.action !== "CASE_MANAGE_SOLUTION" &&
+      perm.action !== "PUZZLE_MANAGE_SECRET"
     ) {
       await prisma.adminRolePermission.upsert({
         where: {
@@ -232,7 +282,8 @@ async function main() {
     {
       code: "EVIDENCE_EXPERT",
       title: "Forensic Mastery",
-      description: "Cite all essential supporting clues and account for all contradictory evidence.",
+      description:
+        "Cite all essential supporting clues and account for all contradictory evidence.",
       category: AchievementCategory.DEDUCTION,
       criteria: { type: "EVIDENCE_ACCURACY", fullMatch: true },
     },
@@ -415,8 +466,20 @@ async function main() {
         solutionConfig: {
           primaryCharacterId: primeSuspect.id,
           primaryCharacterName: "Marcus Thorne",
-          motiveKeywords: ["sabotage", "carrier redirect", "rogue network", "blackout", "exfiltration"],
-          methodKeywords: ["terminal override", "cryptographic dongle", "breaker interlock", "sector b", "manual override"],
+          motiveKeywords: [
+            "sabotage",
+            "carrier redirect",
+            "rogue network",
+            "blackout",
+            "exfiltration",
+          ],
+          methodKeywords: [
+            "terminal override",
+            "cryptographic dongle",
+            "breaker interlock",
+            "sector b",
+            "manual override",
+          ],
           timelineKeywords: ["02:50", "02:58", "03:00", "02:59"],
           requiredSupportingClueCodes: ["EVID-ZR-01", "EVID-ZR-02", "EVID-ZR-04"],
           requiredContradictingClueCodes: ["EVID-ZR-03"],

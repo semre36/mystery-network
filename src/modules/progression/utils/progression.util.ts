@@ -3,7 +3,7 @@ import type { RankTier } from "@/modules/players/types/player.types";
 
 /**
  * Formula: Level = floor(1 + sqrt(XP / 100))
- * 
+ *
  * Thresholds:
  * Level 1: 0 XP
  * Level 2: 100 XP
@@ -56,7 +56,9 @@ export function getLevelProgress(totalXP: number): LevelProgressDetails {
   const xpNeededForNextLevel = Math.max(0, nextLevelMinXP - safeXP);
 
   const progressPercent =
-    levelSpan > 0 ? Math.min(100, Math.max(0, Math.round((xpIntoCurrentLevel / levelSpan) * 100))) : 100;
+    levelSpan > 0
+      ? Math.min(100, Math.max(0, Math.round((xpIntoCurrentLevel / levelSpan) * 100)))
+      : 100;
 
   const rank = getRankForLevel(currentLevel);
 
@@ -79,4 +81,3 @@ export function getLevelProgress(totalXP: number): LevelProgressDetails {
 export function getRankTitle(level: number): string {
   return getRankForLevel(level).title;
 }
-

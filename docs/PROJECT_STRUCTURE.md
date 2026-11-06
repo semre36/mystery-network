@@ -144,7 +144,12 @@ mystery-network/
 │   │   ├── submissions/        # Phase 12: Accusations, theory verification, scoring
 │   │   ├── progression/        # Phase 12: XP calculations, detective badges, leaderboards
 │   │   ├── notifications/      # Future: In-app alerts, Telegram bot event dispatches
-│   │   └── administration/     # Phase 13: Operational dashboards & case authoring
+│   │   ├── administration/     # Phase 13: Operational dashboards & case authoring
+│   │   │   ├── constants/      # ADMIN_PERMISSIONS catalog and DEFAULT_ADMIN_ROLES
+│   │   │   ├── types/          # SafeAdminUserDto, SafeAdminRoleDto, AdminDashboardMetricsDto, etc.
+│   │   │   ├── validation/     # Zod schemas for admin operations & CMS authoring
+│   │   │   ├── guards/         # AdminGuard RBAC, privilege escalation & last super admin protection
+│   │   │   └── services/       # AuditService, UsersService, RolesService, ContentService, RewardsService, AnalyticsService, SettingsService, BootstrapService
 │   │
 │   ├── lib/                    # Shared Foundation Libraries
 │   │   ├── config/             # Centralized environment configuration via Zod

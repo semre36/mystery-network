@@ -95,7 +95,9 @@ export function ResultsView({ results }: ResultsViewProps) {
               <span className="text-3xl font-extrabold font-mono text-slate-100">{score}</span>
               <span className="text-xs font-mono text-slate-400">/ 100</span>
             </div>
-            <div className={`text-[10px] font-mono font-bold uppercase flex items-center gap-1 ${cfg.text}`}>
+            <div
+              className={`text-[10px] font-mono font-bold uppercase flex items-center gap-1 ${cfg.text}`}
+            >
               <StatusIcon className="w-3 h-3" />
               <span>{result.replace("_", " ")}</span>
             </div>
@@ -148,7 +150,9 @@ export function ResultsView({ results }: ResultsViewProps) {
                 {dims.primarySuspect.score} / {dims.primarySuspect.maxScore}
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed font-sans">{dims.primarySuspect.notes}</p>
+            <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+              {dims.primarySuspect.notes}
+            </p>
           </div>
 
           {/* Dimension 2: Motive */}
@@ -159,7 +163,9 @@ export function ResultsView({ results }: ResultsViewProps) {
                 {dims.motive.score} / {dims.motive.maxScore}
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed font-sans">{dims.motive.notes}</p>
+            <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+              {dims.motive.notes}
+            </p>
           </div>
 
           {/* Dimension 3: Method */}
@@ -170,7 +176,9 @@ export function ResultsView({ results }: ResultsViewProps) {
                 {dims.method.score} / {dims.method.maxScore}
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed font-sans">{dims.method.notes}</p>
+            <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+              {dims.method.notes}
+            </p>
           </div>
 
           {/* Dimension 4: Timeline */}
@@ -181,7 +189,9 @@ export function ResultsView({ results }: ResultsViewProps) {
                 {dims.timeline.score} / {dims.timeline.maxScore}
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed font-sans">{dims.timeline.notes}</p>
+            <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+              {dims.timeline.notes}
+            </p>
           </div>
 
           {/* Dimension 5: Supporting Evidence */}
@@ -192,7 +202,9 @@ export function ResultsView({ results }: ResultsViewProps) {
                 {dims.supportingEvidence.score} / {dims.supportingEvidence.maxScore}
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed font-sans">{dims.supportingEvidence.notes}</p>
+            <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+              {dims.supportingEvidence.notes}
+            </p>
           </div>
 
           {/* Dimension 6: Contradicting Evidence */}
@@ -250,7 +262,9 @@ export function ResultsView({ results }: ResultsViewProps) {
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-slate-500 font-mono">No significant discrepancies detected.</p>
+            <p className="text-xs text-slate-500 font-mono">
+              No significant discrepancies detected.
+            </p>
           )}
         </div>
       </section>
@@ -332,4 +346,3 @@ export function ResultsView({ results }: ResultsViewProps) {
     </div>
   );
 }
-

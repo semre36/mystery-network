@@ -1,8 +1,4 @@
-import type {
-  SubmissionStatus,
-  EvaluationResult,
-  CaseDifficulty,
-} from "@prisma/client";
+import type { SubmissionStatus, EvaluationResult, CaseDifficulty } from "@prisma/client";
 
 export { SubmissionStatus, EvaluationResult };
 
@@ -119,18 +115,18 @@ export interface CaseSolutionConfig {
   requiredContradictingClueCodes: string[];
   scoringCriteria: {
     primarySuspectWeight: number; // default: 30
-    motiveWeight: number;         // default: 15
-    methodWeight: number;         // default: 15
-    timelineWeight: number;       // default: 15
+    motiveWeight: number; // default: 15
+    methodWeight: number; // default: 15
+    timelineWeight: number; // default: 15
     supportingEvidenceWeight: number; // default: 15
     contradictingEvidenceWeight: number; // default: 10
-    maxScore: number;             // default: 100
-    passScore: number;            // default: 60
-    perfectScore: number;         // default: 90
+    maxScore: number; // default: 100
+    passScore: number; // default: 60
+    perfectScore: number; // default: 90
   };
   rewards: {
-    baseXP: number;               // default: 250
-    perfectBonusXP: number;       // default: 150
-    firstSolveBonusXP?: number;   // default: 100
+    baseXP: number; // default: 250
+    perfectBonusXP: number; // default: 150
+    firstSolveBonusXP?: number; // default: 100
   };
 }

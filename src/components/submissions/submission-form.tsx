@@ -57,7 +57,9 @@ export function SubmissionForm({
 
   // Form State
   const answer = initialSubmission?.answerData;
-  const [title, setTitle] = useState(initialSubmission?.title || answer?.title || "Operational Case Indictment");
+  const [title, setTitle] = useState(
+    initialSubmission?.title || answer?.title || "Operational Case Indictment"
+  );
   const [primaryCharacterId, setPrimaryCharacterId] = useState(answer?.primaryCharacterId || "");
   const [motive, setMotive] = useState(answer?.motive || "");
   const [method, setMethod] = useState(answer?.method || "");
@@ -98,8 +100,10 @@ export function SubmissionForm({
     const warnings: string[] = [];
     if (!title.trim() || title.length < 3) warnings.push("Title must be at least 3 characters.");
     if (!primaryCharacterId) warnings.push("You must designate a primary suspect.");
-    if (!motive.trim() || motive.length < 10) warnings.push("Motive description must be at least 10 characters.");
-    if (!method.trim() || method.length < 10) warnings.push("Methodology description must be at least 10 characters.");
+    if (!motive.trim() || motive.length < 10)
+      warnings.push("Motive description must be at least 10 characters.");
+    if (!method.trim() || method.length < 10)
+      warnings.push("Methodology description must be at least 10 characters.");
     if (!timelineSummary.trim() || timelineSummary.length < 10)
       warnings.push("Timeline sequence must be at least 10 characters.");
     if (!explanation.trim() || explanation.length < 20)
@@ -220,7 +224,11 @@ export function SubmissionForm({
             disabled={savingDraft || submitting}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#121c2e] hover:bg-[#18263e] border border-[#223352] text-xs font-mono text-slate-200 transition-colors disabled:opacity-50"
           >
-            {savingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5 text-cyan-400" />}
+            {savingDraft ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Save className="w-3.5 h-3.5 text-cyan-400" />
+            )}
             <span>Save Draft</span>
           </button>
 
@@ -376,7 +384,8 @@ export function SubmissionForm({
           </div>
         </div>
         <p className="text-xs text-slate-400">
-          Tag unlocked case evidence as either directly supporting your indictment or recognized as contradictory / misleading.
+          Tag unlocked case evidence as either directly supporting your indictment or recognized as
+          contradictory / misleading.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto p-1">
@@ -441,7 +450,8 @@ export function SubmissionForm({
           <span>Final Deductive Rationale & Case Explanation *</span>
         </label>
         <p className="text-xs text-slate-400">
-          Present your holistic closing argument connecting motive, method, forensic evidence, and suspect identity.
+          Present your holistic closing argument connecting motive, method, forensic evidence, and
+          suspect identity.
         </p>
         <textarea
           rows={5}
@@ -471,4 +481,3 @@ export function SubmissionForm({
     </div>
   );
 }
-

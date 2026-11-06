@@ -32,7 +32,8 @@ export function AchievementsView({ achievements }: AchievementsViewProps) {
             Investigator Accolades & Badges
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl font-sans mt-1 leading-relaxed">
-            Proof of operational mastery, forensic deduction accuracy, and syndicate neutralizations.
+            Proof of operational mastery, forensic deduction accuracy, and syndicate
+            neutralizations.
           </p>
         </div>
 
@@ -86,7 +87,11 @@ export function AchievementsView({ achievements }: AchievementsViewProps) {
                         : "bg-slate-900 border border-slate-700 text-slate-500"
                     }`}
                   >
-                    {ach.isUnlocked ? <Award className="w-5 h-5 text-purple-400" /> : <Lock className="w-4 h-4 text-slate-500" />}
+                    {ach.isUnlocked ? (
+                      <Award className="w-5 h-5 text-purple-400" />
+                    ) : (
+                      <Lock className="w-4 h-4 text-slate-500" />
+                    )}
                   </div>
 
                   <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded bg-[#070b14] border border-white/5 text-slate-400">
@@ -104,7 +109,9 @@ export function AchievementsView({ achievements }: AchievementsViewProps) {
                 {ach.isUnlocked ? (
                   <span className="text-emerald-400 flex items-center gap-1 font-semibold">
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Unlocked {ach.unlockedAt ? new Date(ach.unlockedAt).toLocaleDateString() : ""}</span>
+                    <span>
+                      Unlocked {ach.unlockedAt ? new Date(ach.unlockedAt).toLocaleDateString() : ""}
+                    </span>
                   </span>
                 ) : (
                   <span className="text-slate-500 flex items-center gap-1">
@@ -122,4 +129,3 @@ export function AchievementsView({ achievements }: AchievementsViewProps) {
     </div>
   );
 }
-

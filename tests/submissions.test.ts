@@ -14,7 +14,10 @@ import {
   SaveSubmissionDraftSchema,
   FinalSubmissionSchema,
 } from "@/modules/submissions/validation/submission.schema";
-import { GET as getSubmissionsRoute, POST as saveDraftRoute } from "@/app/api/investigations/[investigationId]/submissions/route";
+import {
+  GET as getSubmissionsRoute,
+  POST as saveDraftRoute,
+} from "@/app/api/investigations/[investigationId]/submissions/route";
 import { POST as submitFinalRoute } from "@/app/api/investigations/[investigationId]/submissions/submit/route";
 import { GET as getResultsRoute } from "@/app/api/investigations/[investigationId]/results/route";
 import { GET as getProgressionRoute } from "@/app/api/player/progression/route";
@@ -179,8 +182,10 @@ describe("Submissions, Evaluation Engine, Results & Player Rewards (Phase 12)", 
         primaryCharacterId: MOCK_SUSPECT_ID,
         motive: "Suspect embezzled funds and used blackmail to silence the victim.",
         method: "Administered cyanide poison via coffee cup during the server room access.",
-        timelineSummary: "At midnight, the suspect breached server room 4B as verified by badge logs.",
-        explanation: "Comprehensive analysis reveals that Marcus Thorne orchestrated the entire operation.",
+        timelineSummary:
+          "At midnight, the suspect breached server room 4B as verified by badge logs.",
+        explanation:
+          "Comprehensive analysis reveals that Marcus Thorne orchestrated the entire operation.",
         supportingEvidenceIds: [MOCK_CLUE_1, MOCK_CLUE_2],
         contradictingEvidenceIds: [MOCK_CLUE_CONTRADICT],
       };
@@ -309,7 +314,8 @@ describe("Submissions, Evaluation Engine, Results & Player Rewards (Phase 12)", 
         title: "The Midnight Protocol Indictment",
         primaryCharacterId: MOCK_SUSPECT_ID,
         additionalCharacterIds: [],
-        motive: "Suspect committed embezzlement and used blackmail and extortion against the victim.",
+        motive:
+          "Suspect committed embezzlement and used blackmail and extortion against the victim.",
         method: "Administered cyanide poison to induce cardiac arrest.",
         timelineSummary: "Action took place at midnight (23:45) inside the server room.",
         explanation: "Thorough forensics confirms Marcus Thorne's guilt.",
@@ -406,9 +412,7 @@ describe("Submissions, Evaluation Engine, Results & Player Rewards (Phase 12)", 
         { id: MOCK_CLUE_2, clueCode: "CLUE-002", title: "Poison Vial" },
       ];
 
-      const caseCharacters = [
-        { id: MOCK_SUSPECT_ID, name: "Marcus Thorne" },
-      ];
+      const caseCharacters = [{ id: MOCK_SUSPECT_ID, name: "Marcus Thorne" }];
 
       const evaluation = EvaluationService.computeDeductiveScore(
         answerData,
@@ -551,7 +555,9 @@ describe("Submissions, Evaluation Engine, Results & Player Rewards (Phase 12)", 
 
       const mockInv = createMockInvestigation();
       vi.spyOn(prisma.investigation, "findUnique").mockResolvedValue(mockInv as any);
-      vi.spyOn(prisma.caseCharacter, "findMany").mockResolvedValue([{ id: MOCK_SUSPECT_ID }] as any);
+      vi.spyOn(prisma.caseCharacter, "findMany").mockResolvedValue([
+        { id: MOCK_SUSPECT_ID },
+      ] as any);
       vi.spyOn(prisma.caseSubmission, "findFirst").mockResolvedValue(null);
       vi.spyOn(prisma.caseSubmission, "create").mockResolvedValue({
         id: MOCK_SUBMISSION_ID,
@@ -570,15 +576,11 @@ describe("Submissions, Evaluation Engine, Results & Player Rewards (Phase 12)", 
         evaluation: null,
       } as any);
 
-      const draft = await SubmissionService.saveDraft(
-        MOCK_INVESTIGATION_ID,
-        MOCK_USER_ID,
-        {
-          title: "Investigative Indictment",
-          primaryCharacterId: MOCK_SUSPECT_ID,
-          motive: "Suspect embezzled funds.",
-        } as any
-      );
+      const draft = await SubmissionService.saveDraft(MOCK_INVESTIGATION_ID, MOCK_USER_ID, {
+        title: "Investigative Indictment",
+        primaryCharacterId: MOCK_SUSPECT_ID,
+        motive: "Suspect embezzled funds.",
+      } as any);
 
       expect(draft.id).toBe(MOCK_SUBMISSION_ID);
       expect(draft.status).toBe(SubmissionStatus.DRAFT);
@@ -605,7 +607,9 @@ describe("Submissions, Evaluation Engine, Results & Player Rewards (Phase 12)", 
 
   describe("7. API Route Handlers", () => {
     it("GET /api/investigations/[investigationId]/submissions should return draft or null", async () => {
-      vi.spyOn(authGuard, "requireAuthenticatedUser").mockResolvedValue(mockAuthenticatedUser as any);
+      vi.spyOn(authGuard, "requireAuthenticatedUser").mockResolvedValue(
+        mockAuthenticatedUser as any
+      );
       vi.spyOn(SubmissionService, "getSubmission").mockResolvedValue({
         id: MOCK_SUBMISSION_ID,
         investigationId: MOCK_INVESTIGATION_ID,
@@ -622,7 +626,9 @@ describe("Submissions, Evaluation Engine, Results & Player Rewards (Phase 12)", 
       });
 
       const req = new NextRequest("http://localhost:3000/api/investigations/inv-1/submissions");
-      const res = await getSubmissionsRoute(req, { params: Promise.resolve({ investigationId: MOCK_INVESTIGATION_ID }) });
+      const res = await getSubmissionsRoute(req, {
+        params: Promise.resolve({ investigationId: MOCK_INVESTIGATION_ID }),
+      });
       const json = await res.json();
 
       expect(res.status).toBe(200);
@@ -633,7 +639,9 @@ describe("Submissions, Evaluation Engine, Results & Player Rewards (Phase 12)", 
     });
 
     it("POST /api/investigations/[investigationId]/submissions should save draft successfully", async () => {
-      vi.spyOn(authGuard, "requireAuthenticatedUser").mockResolvedValue(mockAuthenticatedUser as any);
+      vi.spyOn(authGuard, "requireAuthenticatedUser").mockResolvedValue(
+        mockAuthenticatedUser as any
+      );
       vi.spyOn(SubmissionService, "saveDraft").mockResolvedValue({
         id: MOCK_SUBMISSION_ID,
         investigationId: MOCK_INVESTIGATION_ID,
@@ -659,7 +667,9 @@ describe("Submissions, Evaluation Engine, Results & Player Rewards (Phase 12)", 
         }),
       });
 
-      const res = await saveDraftRoute(req, { params: Promise.resolve({ investigationId: MOCK_INVESTIGATION_ID }) });
+      const res = await saveDraftRoute(req, {
+        params: Promise.resolve({ investigationId: MOCK_INVESTIGATION_ID }),
+      });
       const json = await res.json();
 
       expect(res.status).toBe(200);
@@ -669,7 +679,9 @@ describe("Submissions, Evaluation Engine, Results & Player Rewards (Phase 12)", 
     });
 
     it("GET /api/player/progression should return player progression dossier", async () => {
-      vi.spyOn(authGuard, "requireAuthenticatedUser").mockResolvedValue(mockAuthenticatedUser as any);
+      vi.spyOn(authGuard, "requireAuthenticatedUser").mockResolvedValue(
+        mockAuthenticatedUser as any
+      );
       vi.spyOn(ProgressionService, "getPlayerProgression").mockResolvedValue({
         playerId: MOCK_PROFILE_ID,
         codename: "GHOST",
@@ -722,7 +734,9 @@ describe("Submissions, Evaluation Engine, Results & Player Rewards (Phase 12)", 
     });
 
     it("GET /api/player/achievements should return unlocked and locked achievements", async () => {
-      vi.spyOn(authGuard, "requireAuthenticatedUser").mockResolvedValue(mockAuthenticatedUser as any);
+      vi.spyOn(authGuard, "requireAuthenticatedUser").mockResolvedValue(
+        mockAuthenticatedUser as any
+      );
       vi.spyOn(ProgressionService, "getPlayerAchievements").mockResolvedValue([
         {
           id: "ach-1",

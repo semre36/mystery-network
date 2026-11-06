@@ -17,6 +17,7 @@
     "db:seed": "prisma db seed",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
+    "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "telegram:info": "tsx scripts/telegram-setup.ts info",
     "telegram:set-commands": "tsx scripts/telegram-setup.ts set-commands",
     "telegram:set-webhook": "tsx scripts/telegram-setup.ts set-webhook",

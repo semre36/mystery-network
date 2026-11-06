@@ -31,9 +31,7 @@ export function ProgressionView({ progression }: ProgressionViewProps) {
               <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded bg-cyan-950/80 border border-cyan-700/60 text-cyan-300 font-bold">
                 {rank.clearanceLevel}
               </span>
-              <span className="text-[10px] font-mono text-slate-400">
-                BADGE: {rank.badge}
-              </span>
+              <span className="text-[10px] font-mono text-slate-400">BADGE: {rank.badge}</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-100 font-sans">
               Operative Level {progression.level}: {rank.title}
@@ -62,9 +60,15 @@ export function ProgressionView({ progression }: ProgressionViewProps) {
         {/* Level Progress Bar */}
         <div className="mt-6 pt-5 border-t border-white/5 space-y-2">
           <div className="flex items-center justify-between text-xs font-mono">
-            <span className="text-slate-400">Level {progression.level} ({levelProgress.currentLevelMinXP} XP)</span>
-            <span className="text-cyan-300 font-bold">{levelProgress.progressPercent}% Calibrated</span>
-            <span className="text-slate-400">Level {levelProgress.nextLevel} ({levelProgress.nextLevelMinXP} XP)</span>
+            <span className="text-slate-400">
+              Level {progression.level} ({levelProgress.currentLevelMinXP} XP)
+            </span>
+            <span className="text-cyan-300 font-bold">
+              {levelProgress.progressPercent}% Calibrated
+            </span>
+            <span className="text-slate-400">
+              Level {levelProgress.nextLevel} ({levelProgress.nextLevelMinXP} XP)
+            </span>
           </div>
 
           <div className="w-full h-3 rounded-full bg-[#050a14] border border-[#141e30] overflow-hidden p-0.5">
@@ -87,7 +91,9 @@ export function ProgressionView({ progression }: ProgressionViewProps) {
         </div>
 
         <div className="p-5 rounded-2xl bg-[#09101e] border border-[#16233a] space-y-1">
-          <span className="text-[10px] font-mono uppercase text-slate-500">Commendation Ribbons</span>
+          <span className="text-[10px] font-mono uppercase text-slate-500">
+            Commendation Ribbons
+          </span>
           <div className="text-2xl font-bold font-mono text-purple-400">
             {progression.unlockedAchievementsCount} / {progression.totalAchievementsCount}
           </div>
@@ -101,10 +107,10 @@ export function ProgressionView({ progression }: ProgressionViewProps) {
         </div>
 
         <div className="p-5 rounded-2xl bg-[#09101e] border border-[#16233a] space-y-1">
-          <span className="text-[10px] font-mono uppercase text-slate-500">Operational Clearance</span>
-          <div className="text-lg font-bold font-sans text-cyan-300 mt-1">
-            {rank.title}
-          </div>
+          <span className="text-[10px] font-mono uppercase text-slate-500">
+            Operational Clearance
+          </span>
+          <div className="text-lg font-bold font-sans text-cyan-300 mt-1">{rank.title}</div>
           <span className="text-[11px] text-slate-400">Full platform inquiry</span>
         </div>
       </div>
@@ -118,12 +124,15 @@ export function ProgressionView({ progression }: ProgressionViewProps) {
               Auditable Reward Ledger ({progression.recentTransactions.length} Transactions)
             </h3>
           </div>
-          <span className="text-[10px] font-mono text-slate-500">Idempotent Cryptographic Records</span>
+          <span className="text-[10px] font-mono text-slate-500">
+            Idempotent Cryptographic Records
+          </span>
         </div>
 
         {progression.recentTransactions.length === 0 ? (
           <div className="text-center py-8 text-slate-500 font-mono text-xs">
-            No XP transactions recorded yet. Complete investigations or solve cipher minigames to earn intelligence credits.
+            No XP transactions recorded yet. Complete investigations or solve cipher minigames to
+            earn intelligence credits.
           </div>
         ) : (
           <div className="divide-y divide-white/5 space-y-0">
@@ -135,7 +144,8 @@ export function ProgressionView({ progression }: ProgressionViewProps) {
                 <div className="space-y-0.5">
                   <p className="font-semibold text-slate-200 font-sans">{tx.reason}</p>
                   <p className="text-[10px] font-mono text-slate-500">
-                    {new Date(tx.createdAt).toLocaleDateString()} at {new Date(tx.createdAt).toLocaleTimeString()}
+                    {new Date(tx.createdAt).toLocaleDateString()} at{" "}
+                    {new Date(tx.createdAt).toLocaleTimeString()}
                     {tx.referenceKey && ` • Ref: ${tx.referenceKey}`}
                   </p>
                 </div>
@@ -151,4 +161,3 @@ export function ProgressionView({ progression }: ProgressionViewProps) {
     </div>
   );
 }
-

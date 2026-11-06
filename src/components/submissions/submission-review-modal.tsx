@@ -71,8 +71,9 @@ export function SubmissionReviewModal({
             <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
             <div className="text-xs text-amber-200/90 leading-relaxed font-sans">
               <span className="font-bold text-amber-300">CRITICAL PROTOCOL:</span> Upon submission,
-              this case theory is final and immutable. The evaluation engine will score your deductive
-              accuracy, evaluate your cited evidence, and record your permanent investigator rating.
+              this case theory is final and immutable. The evaluation engine will score your
+              deductive accuracy, evaluate your cited evidence, and record your permanent
+              investigator rating.
             </div>
           </div>
 
@@ -94,7 +95,9 @@ export function SubmissionReviewModal({
           {/* Summary Fields */}
           <div className="space-y-3 bg-[#0c1424] p-4 rounded-xl border border-[#19263f]">
             <div>
-              <span className="text-[10px] font-mono uppercase text-slate-500">Case Theory Title</span>
+              <span className="text-[10px] font-mono uppercase text-slate-500">
+                Case Theory Title
+              </span>
               <p className="text-xs font-semibold text-slate-200">{title || "Untitled"}</p>
             </div>
 
@@ -107,13 +110,17 @@ export function SubmissionReviewModal({
 
             <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/5">
               <div>
-                <span className="text-[10px] font-mono uppercase text-slate-500">Supporting Evidence</span>
+                <span className="text-[10px] font-mono uppercase text-slate-500">
+                  Supporting Evidence
+                </span>
                 <p className="text-xs font-semibold text-emerald-400 font-mono">
                   {supportingEvidenceCount} Clues Cited
                 </p>
               </div>
               <div>
-                <span className="text-[10px] font-mono uppercase text-slate-500">Contradicting Evidence</span>
+                <span className="text-[10px] font-mono uppercase text-slate-500">
+                  Contradicting Evidence
+                </span>
                 <p className="text-xs font-semibold text-amber-400 font-mono">
                   {contradictingEvidenceCount} Clues Disproven
                 </p>
@@ -121,22 +128,32 @@ export function SubmissionReviewModal({
             </div>
 
             <div>
-              <span className="text-[10px] font-mono uppercase text-slate-500">Motive Deduction</span>
+              <span className="text-[10px] font-mono uppercase text-slate-500">
+                Motive Deduction
+              </span>
               <p className="text-xs text-slate-300 line-clamp-2 mt-0.5">{motive || "N/A"}</p>
             </div>
 
             <div>
-              <span className="text-[10px] font-mono uppercase text-slate-500">Method of Operation</span>
+              <span className="text-[10px] font-mono uppercase text-slate-500">
+                Method of Operation
+              </span>
               <p className="text-xs text-slate-300 line-clamp-2 mt-0.5">{method || "N/A"}</p>
             </div>
 
             <div>
-              <span className="text-[10px] font-mono uppercase text-slate-500">Timeline Forensics</span>
-              <p className="text-xs text-slate-300 line-clamp-2 mt-0.5">{timelineSummary || "N/A"}</p>
+              <span className="text-[10px] font-mono uppercase text-slate-500">
+                Timeline Forensics
+              </span>
+              <p className="text-xs text-slate-300 line-clamp-2 mt-0.5">
+                {timelineSummary || "N/A"}
+              </p>
             </div>
 
             <div>
-              <span className="text-[10px] font-mono uppercase text-slate-500">Deductive Rationale</span>
+              <span className="text-[10px] font-mono uppercase text-slate-500">
+                Deductive Rationale
+              </span>
               <p className="text-xs text-slate-300 line-clamp-3 mt-0.5">{explanation || "N/A"}</p>
             </div>
           </div>
@@ -176,4 +193,3 @@ export function SubmissionReviewModal({
     </div>
   );
 }
-
