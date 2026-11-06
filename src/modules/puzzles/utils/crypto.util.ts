@@ -1,10 +1,27 @@
 import crypto from "crypto";
 import { NormalizationOptions } from "../types/puzzle.types";
 
-const SERVER_SECRET =
-  process.env.SESSION_SECRET ||
-  process.env.TELEGRAM_BOT_TOKEN ||
-  "mystery-network-secure-puzzle-salt-2026";
+function getServerSecret(): string {
+  const secret =
+    process.env.PUZZLE_HMAC_SECRET || process.env.SESSION_SECRET || process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "CRITICAL: Missing server secret for puzzle answer hashing. PUZZLE_HMAC_SECRET or SESSION_SECRET must be configured."
+      );
+    }
+    return "mystery-network-dev-salt-2026";
+  }
+
+  if (process.env.NODE_ENV === "production" && secret.length < 32) {
+    throw new Error(
+      "CRITICAL: Server secret has inadequate entropy (must be at least 32 characters in production)."
+    );
+  }
+
+  return secret;
+}
 
 /**
  * Normalizes answer text based on challenge rules.
@@ -45,13 +62,15 @@ export function normalizeAnswer(text: string, options: NormalizationOptions = {}
  * Protects low-entropy answers (like PIN codes or simple words) from offline rainbow-table attacks.
  */
 export function hashAnswer(answer: string, salt: string = ""): string {
-  const hmac = crypto.createHmac("sha256", SERVER_SECRET);
+  const secret = getServerSecret();
+  const hmac = crypto.createHmac("sha256", secret);
   hmac.update(`${salt}:${answer.trim()}`);
   return hmac.digest("hex");
 }
 
 /**
  * Verifies if an answer matches an expected hash or plaintext solution.
+ * Employs constant-time equality check to defeat timing attacks.
  */
 export function verifyAnswerMatch(
   submittedAnswer: string,
@@ -59,10 +78,13 @@ export function verifyAnswerMatch(
   salt: string = "",
   options: NormalizationOptions = {}
 ): boolean {
+  if (!expectedHash || expectedHash.length !== 64 || !/^[0-9a-f]{64}$/i.test(expectedHash)) {
+    return false;
+  }
+
   const normalized = normalizeAnswer(submittedAnswer, options);
   const submittedHash = hashAnswer(normalized, salt);
 
-  // Constant-time comparison to prevent timing attacks
   const bufA = Buffer.from(submittedHash, "hex");
   const bufB = Buffer.from(expectedHash, "hex");
 

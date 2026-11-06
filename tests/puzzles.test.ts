@@ -488,6 +488,13 @@ describe("Interactive Puzzle Engine & Investigation Challenges (Phase 10)", () =
 
       // Now with 1 attempt -> succeeds and unlocks hint
       vi.spyOn(prisma.puzzleAttempt, "count").mockResolvedValue(1);
+      vi.spyOn(prisma.investigationUnlockedHint, "upsert").mockResolvedValue({
+        id: "unlocked-1",
+        investigationId: MOCK_INVESTIGATION_ID,
+        hintId: MOCK_HINT_ID_1,
+        unlockedByPlayerId: MOCK_PROFILE_ID,
+        unlockedAt: new Date(),
+      } as any);
       vi.spyOn(prisma.investigationUnlockedHint, "create").mockResolvedValue({
         id: "unlocked-1",
         investigationId: MOCK_INVESTIGATION_ID,
@@ -612,7 +619,9 @@ describe("Interactive Puzzle Engine & Investigation Challenges (Phase 10)", () =
   // ==========================================================================
   describe("API Route Handlers", () => {
     it("GET /api/investigations/[investigationId]/puzzles returns 200 with puzzles", async () => {
-      vi.spyOn(PuzzleService, "getPuzzles").mockResolvedValue([createMockPuzzle() as any]);
+      const getSpy = vi
+        .spyOn(PuzzleService, "getPuzzles")
+        .mockResolvedValue([createMockPuzzle() as any]);
 
       const req = new NextRequest("http://localhost:3000/api/investigations/123/puzzles");
       const res = await getPuzzlesRoute(req, {
@@ -623,10 +632,11 @@ describe("Interactive Puzzle Engine & Investigation Challenges (Phase 10)", () =
       const json = await res.json();
       expect(json.ok).toBe(true);
       expect(json.data.puzzles).toHaveLength(1);
+      getSpy.mockRestore();
     });
 
     it("POST /api/investigations/[investigationId]/puzzles/[puzzleId]/attempts submits answer", async () => {
-      vi.spyOn(PuzzleService, "submitAttempt").mockResolvedValue({
+      const submitSpy = vi.spyOn(PuzzleService, "submitAttempt").mockResolvedValue({
         isCorrect: true,
         resultStatus: AttemptStatus.CORRECT,
         remainingAttempts: 4,
@@ -659,10 +669,11 @@ describe("Interactive Puzzle Engine & Investigation Challenges (Phase 10)", () =
       const json = await res.json();
       expect(json.ok).toBe(true);
       expect(json.data.isCorrect).toBe(true);
+      submitSpy.mockRestore();
     });
 
     it("POST /api/investigations/[investigationId]/puzzles/[puzzleId]/hints/[hintId]/unlock discloses hint", async () => {
-      vi.spyOn(PuzzleService, "unlockHint").mockResolvedValue({
+      const unlockSpy = vi.spyOn(PuzzleService, "unlockHint").mockResolvedValue({
         id: MOCK_HINT_ID_1,
         puzzleId: MOCK_PUZZLE_ID_1,
         stageId: null,
@@ -693,6 +704,158 @@ describe("Interactive Puzzle Engine & Investigation Challenges (Phase 10)", () =
       expect(json.ok).toBe(true);
       expect(json.data.isUnlocked).toBe(true);
       expect(json.data.content).toBe("Decrypted hint content.");
+      unlockSpy.mockRestore();
+    });
+  });
+
+  // ==========================================================================
+  // SECTION 7: Adversarial Security, IDOR & Multi-Stage Integrity (Audit)
+  // ==========================================================================
+  describe("Adversarial Security & Audit Verifications", () => {
+    it("verifyAnswerMatch: safely handles malformed, empty, or truncated hashes without crashing", () => {
+      expect(verifyAnswerMatch("hello", "not_a_valid_hex_hash")).toBe(false);
+      expect(verifyAnswerMatch("hello", "")).toBe(false);
+      expect(verifyAnswerMatch("hello", "123456")).toBe(false);
+      expect(verifyAnswerMatch("hello", "MULTI_STAGE_PUZZLE")).toBe(false);
+    });
+
+    it("Multi-Stage: rejects submission to an already completed prior stage", () => {
+      const puzzleWithStages = createMockPuzzle({
+        isMultiStage: true,
+        stages: [
+          { id: MOCK_STAGE_ID_1, stageOrder: 1, title: "Stage 1" },
+          { id: MOCK_STAGE_ID_2, stageOrder: 2, title: "Stage 2" },
+        ],
+      });
+
+      // Operative is currently on Stage 2, but attempts to re-submit to Stage 1
+      expect(() => PuzzleGuard.verifyStageAccess(puzzleWithStages, MOCK_STAGE_ID_1, 2)).toThrow(
+        "This challenge stage has already been completed."
+      );
+    });
+
+    it("Multi-Stage: rejects submission to a locked future stage", () => {
+      const puzzleWithStages = createMockPuzzle({
+        isMultiStage: true,
+        stages: [
+          { id: MOCK_STAGE_ID_1, stageOrder: 1, title: "Stage 1" },
+          { id: MOCK_STAGE_ID_2, stageOrder: 2, title: "Stage 2" },
+        ],
+      });
+
+      // Operative is currently on Stage 1, but attempts to bypass to Stage 2
+      expect(() => PuzzleGuard.verifyStageAccess(puzzleWithStages, MOCK_STAGE_ID_2, 1)).toThrow(
+        "This challenge stage is currently locked."
+      );
+    });
+
+    it("IDOR: rejects puzzle belonging to a different case with 404", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_PROFILE_ID,
+        codename: "OPERATIVE_TEST",
+      } as any);
+
+      const investigation = createMockInvestigation();
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValue(investigation as any);
+
+      // Foreign case puzzle
+      const foreignPuzzle = createMockPuzzle({
+        caseId: "00000000-0000-4000-a000-000000000999",
+      });
+      vi.spyOn(prisma.puzzle, "findUnique").mockResolvedValue(foreignPuzzle as any);
+
+      await expect(
+        PuzzleGuard.verifyPuzzleAccess(MOCK_USER_ID, MOCK_INVESTIGATION_ID, MOCK_PUZZLE_ID_1)
+      ).rejects.toThrow("Challenge not found or restricted");
+    });
+
+    it("Disbanded Team: blocks access if squad is disbanded", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_PROFILE_ID,
+        codename: "OPERATIVE_TEST",
+      } as any);
+
+      const investigation = createMockInvestigation({
+        teamId: "team-disbanded-1",
+      });
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValue(investigation as any);
+
+      // Team status is DISBANDED
+      vi.spyOn(prisma.team, "findUnique").mockResolvedValue({
+        id: "team-disbanded-1",
+        status: "DISBANDED",
+      } as any);
+
+      await expect(
+        PuzzleGuard.verifyPuzzleAccess(MOCK_USER_ID, MOCK_INVESTIGATION_ID, MOCK_PUZZLE_ID_1)
+      ).rejects.toThrow("Investigation session not found or restricted");
+    });
+
+    it("Already Solved: rejects attempts to re-solve a completed puzzle", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_PROFILE_ID,
+        codename: "OPERATIVE_TEST",
+      } as any);
+
+      const investigation = createMockInvestigation();
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValue(investigation as any);
+
+      const puzzle = createMockPuzzle();
+      vi.spyOn(prisma.puzzle, "findUnique").mockResolvedValue(puzzle as any);
+
+      const mockTx = {
+        $executeRaw: vi.fn().mockResolvedValue(1),
+        puzzleProgress: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: "prog-solved",
+            status: PuzzleProgressStatus.SOLVED,
+          }),
+        },
+      };
+
+      vi.spyOn(prisma, "$transaction").mockImplementation(async (cb: any) => {
+        return cb(mockTx);
+      });
+
+      await expect(
+        PuzzleService.submitAttempt(MOCK_USER_ID, MOCK_INVESTIGATION_ID, MOCK_PUZZLE_ID_1, {
+          answer: "HELLO WORLD",
+        })
+      ).rejects.toThrow("This challenge has already been solved");
+    });
+
+    it("Cooperative Visibility: hint unlocked by Operative A is visible to Operative B", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_OTHER_PROFILE_ID, // Operative B
+        codename: "OPERATIVE_B",
+      } as any);
+
+      const investigation = createMockInvestigation();
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValue(investigation as any);
+
+      const puzzle = createMockPuzzle();
+      vi.spyOn(prisma.puzzle, "findUnique").mockResolvedValue(puzzle as any);
+
+      // Investigation has Hint 1 unlocked
+      vi.spyOn(prisma.investigationUnlockedHint, "findMany").mockResolvedValue([
+        { hintId: MOCK_HINT_ID_1 } as any,
+      ]);
+
+      vi.spyOn(prisma.puzzleProgress, "findUnique").mockResolvedValue({
+        id: "prog-1",
+        status: PuzzleProgressStatus.IN_PROGRESS,
+        currentStageOrder: 1,
+      } as any);
+
+      const detail = await PuzzleService.getPuzzleDetail(
+        MOCK_OTHER_USER_ID,
+        MOCK_INVESTIGATION_ID,
+        MOCK_PUZZLE_ID_1
+      );
+
+      expect(detail.hints).toHaveLength(1);
+      expect(detail.hints[0].isUnlocked).toBe(true);
+      expect(detail.hints[0].content).toBe("Julius Caesar favored this simple offset technique.");
     });
   });
 });

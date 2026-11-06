@@ -3,6 +3,7 @@ import { AppError } from "@/lib/errors/app-error";
 import {
   ParticipantStatus,
   MembershipStatus,
+  TeamStatus,
   ContentStatus,
   ChapterProgressStatus,
   InvestigationStatus,
@@ -77,13 +78,26 @@ export class PuzzleGuard {
       );
     }
 
-    // 2. Active squad membership check for cooperative squad investigations
+    // 2. Active squad membership and team status check for cooperative squad investigations
     if (
       investigation.teamId &&
       (investigation.status === InvestigationStatus.IN_PROGRESS ||
         investigation.status === InvestigationStatus.PAUSED ||
         investigation.status === InvestigationStatus.NOT_STARTED)
     ) {
+      const team = await prisma.team.findUnique({
+        where: { id: investigation.teamId },
+        select: { status: true },
+      });
+
+      if (!team || team.status !== TeamStatus.ACTIVE) {
+        throw new AppError(
+          "Investigation session not found or restricted",
+          404,
+          "INVESTIGATION_NOT_FOUND"
+        );
+      }
+
       const membership = await prisma.teamMembership.findUnique({
         where: {
           teamId_playerId: {
@@ -156,7 +170,14 @@ export class PuzzleGuard {
       throw new AppError("Puzzle stage not found", 404, "STAGE_NOT_FOUND");
     }
 
-    if (stage.stageOrder > currentStageOrder) {
+    if (stage.stageOrder !== currentStageOrder) {
+      if (stage.stageOrder < currentStageOrder) {
+        throw new AppError(
+          "This challenge stage has already been completed.",
+          400,
+          "STAGE_ALREADY_COMPLETED"
+        );
+      }
       throw new AppError(
         "This challenge stage is currently locked. Complete prior stages first.",
         403,

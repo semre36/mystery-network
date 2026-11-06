@@ -397,10 +397,11 @@ export class PuzzleService {
         effectiveMaxAttempts = targetStage.maxAttempts ?? puzzle.maxAttempts;
       }
 
-      // 3. Check attempt limits
+      // 3. Check attempt limits (scoped to operative, puzzle, stage, and investigation)
       const attemptWhere: any = {
         puzzleId,
         investigationId,
+        playerId,
         ...(targetStage ? { stageId: targetStage.id } : {}),
       };
 
@@ -638,9 +639,16 @@ export class PuzzleService {
       }
     }
 
-    // Atomically register unlocked hint
-    await prisma.investigationUnlockedHint.create({
-      data: {
+    // Atomically register unlocked hint (idempotent under concurrency)
+    await prisma.investigationUnlockedHint.upsert({
+      where: {
+        investigationId_hintId: {
+          investigationId,
+          hintId: hint.id,
+        },
+      },
+      update: {},
+      create: {
         investigationId,
         hintId: hint.id,
         unlockedByPlayerId: playerId,
