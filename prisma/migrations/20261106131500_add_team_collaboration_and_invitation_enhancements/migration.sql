@@ -15,4 +15,3 @@ CREATE INDEX "team_invitations_invitedPlayerId_idx" ON "team_invitations"("invit
 
 -- AddForeignKey
 ALTER TABLE "team_invitations" ADD CONSTRAINT "team_invitations_invitedPlayerId_fkey" FOREIGN KEY ("invitedPlayerId") REFERENCES "player_profiles"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-

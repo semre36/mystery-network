@@ -66,8 +66,23 @@ mystery-network/
 │   │       │       ├── route.ts # Phase 07: Investigation workspace endpoint (GET)
 │   │       │       ├── status/
 │   │       │       │   └── route.ts # Phase 07: Lifecycle status transition endpoint (PATCH)
-│   │       │       └── progress/
-│   │       │           └── route.ts # Phase 07: Chapter progression endpoint (GET/PATCH)
+│   │       │       ├── progress/
+│   │       │       │   └── route.ts # Phase 07: Chapter progression endpoint (GET/PATCH)
+│   │       │       └── puzzles/
+│   │       │           ├── route.ts # Phase 10: List investigation challenges (GET)
+│   │       │           └── [puzzleId]/
+│   │       │               ├── route.ts # Phase 10: Puzzle chamber & public config (GET)
+│   │       │               ├── attempts/
+│   │       │               │   └── route.ts # Phase 10: Submit answer / attempt history (POST/GET)
+│   │       │               ├── stages/
+│   │       │               │   └── [stageId]/
+│   │       │               │       ├── route.ts # Phase 10: Inspect stage (GET)
+│   │       │               │       └── attempts/
+│   │       │               │           └── route.ts # Phase 10: Submit stage attempt (POST)
+│   │       │               └── hints/
+│   │       │                   └── [hintId]/
+│   │       │                       └── unlock/
+│   │       │                           └── route.ts # Phase 10: Unlock tactical hint (POST)
 │   │       ├── teams/
 │   │       │   ├── route.ts    # Phase 09: List / create squads (GET/POST /api/teams)
 │   │       │   └── [teamId]/
@@ -113,6 +128,12 @@ mystery-network/
 │   │   │   ├── guards/         # TeamGuard security checks & anti-probing defenses
 │   │   │   └── services/       # TeamService & InvitationService implementations
 │   │   ├── puzzles/            # Phase 10: Interactive minigames, ciphers, decryption engines
+│   │   │   ├── types/          # Safe DTOs (SafePuzzleSummaryDto, SafePuzzleDetailDto, SafePuzzleStageDto)
+│   │   │   ├── validation/     # Zod schemas for answer attempt & hint unlock
+│   │   │   ├── utils/          # Normalization (NFKC, punctuation, whitespace) & HMAC-SHA256 hashing
+│   │   │   ├── validators/     # Pluggable challenge validators (Caesar, Substitution, Vigenere, Logic, etc.)
+│   │   │   ├── guards/         # PuzzleGuard access validation & IDOR defense
+│   │   │   └── services/       # PuzzleService business logic & concurrency-safe transactions
 │   │   ├── submissions/        # Phase 12: Accusations, theory verification, scoring
 │   │   ├── progression/        # Phase 12: XP calculations, detective badges, leaderboards
 │   │   ├── notifications/      # Future: In-app alerts, Telegram bot event dispatches

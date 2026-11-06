@@ -15,6 +15,7 @@ import {
   Shield,
   Users,
   UserPlus,
+  KeyRound,
 } from "lucide-react";
 import { InvestigationStatus, CaseDifficulty } from "@prisma/client";
 import type { SafeInvestigationWorkspaceDto } from "@/modules/investigations/types/investigation.types";
@@ -232,6 +233,15 @@ export function WorkspaceHeader({ workspace, onRefresh }: WorkspaceHeaderProps) 
             >
               <Shield className="w-3.5 h-3.5 text-cyan-400" />
               <span>Evidence Vault</span>
+            </Link>
+
+            {/* Cipher Terminal Quick Access */}
+            <Link
+              href={`/investigations/${workspace.id}/puzzles`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-950/60 hover:bg-amber-900/60 border border-amber-500/40 text-amber-300 text-xs font-mono font-semibold transition-colors"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+              <span>Cipher Terminal</span>
             </Link>
 
             {/* Pause Action */}

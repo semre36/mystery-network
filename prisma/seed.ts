@@ -419,29 +419,354 @@ async function main() {
     }
   }
 
-  // Benchmark Puzzle
-  const existingPuzzles = await prisma.puzzle.findMany({
-    where: { caseId: benchmarkCase.id, title: "Relay Console Cipher" },
-  });
+  // ----------------------------------------------------------------------------
+  // 5. Benchmark Interactive Puzzles & Investigation Challenges (Phase 10)
+  // ----------------------------------------------------------------------------
+  console.log("🧩 Seeding benchmark puzzles and challenge stages for CASE-001...");
 
-  if (existingPuzzles.length === 0) {
-    await prisma.puzzle.create({
-      data: {
-        caseId: benchmarkCase.id,
-        chapterId: chapter1.id,
-        title: "Relay Console Cipher",
-        description: "A 4-step Caesar rotation found scribbled on the terminal casing.",
-        puzzleType: PuzzleType.CIPHER,
-        difficulty: CaseDifficulty.EASY,
-        configuration: {
-          cipherType: "CAESAR",
-          shift: 4,
-          encodedPrompt: "LIPPS ASVPH",
+  // Import hashing utility dynamically for seed execution
+  const { hashAnswer, normalizeAnswer } = await import("../src/modules/puzzles/utils/crypto.util");
+
+  const benchmarkPuzzles = [
+    {
+      caseId: benchmarkCase.id,
+      chapterId: chapter1.id,
+      title: "The Shifted Message",
+      description: "Decipher the intercepted transmission by rotating the characters.",
+      instructions:
+        "A short intercepted message from Zurich Relay 7. The frequency technician noted that the sender uses a standard Caesar cipher rotation.",
+      puzzleType: PuzzleType.CAESAR_CIPHER,
+      difficulty: CaseDifficulty.EASY,
+      order: 1,
+      isMultiStage: false,
+      maxAttempts: 5,
+      publicConfiguration: {
+        ciphertext: "KHOOR ZRUOG",
+        shiftHint: "A classical 3-step Caesar offset.",
+        notes: "Intercepted at 02:58 UTC on the maintenance frequency.",
+      },
+      secretConfiguration: {
+        shift: 3,
+        solution: "HELLO WORLD",
+      },
+      solutionHash: hashAnswer(
+        normalizeAnswer("HELLO WORLD", { stripPunctuation: true, collapseWhitespace: true })
+      ),
+      status: ContentStatus.PUBLISHED,
+      hints: [
+        {
+          hintOrder: 1,
+          title: "Historical Context",
+          content:
+            "Julius Caesar favored this simple offset technique to protect military communications.",
+          unlockConditions: { minAttempts: 1 },
         },
-        solutionHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        status: ContentStatus.PUBLISHED,
+        {
+          hintOrder: 2,
+          title: "Shift Direction",
+          content:
+            "Try shifting each letter backwards by 3 positions in the alphabet (e.g. K -> H, H -> E, O -> L).",
+          unlockConditions: { minAttempts: 2 },
+        },
+      ],
+    },
+    {
+      caseId: benchmarkCase.id,
+      chapterId: chapter1.id,
+      title: "The Broken Alphabet",
+      description:
+        "Crack the monoalphabetic substitution cipher extracted from the relay RAM buffer.",
+      instructions:
+        "The intruder scrambled the buffer using a 1-to-1 character substitution. Frequency analysis indicates common single words and standard English patterns.",
+      puzzleType: PuzzleType.SUBSTITUTION_CIPHER,
+      difficulty: CaseDifficulty.MEDIUM,
+      order: 2,
+      isMultiStage: false,
+      maxAttempts: 5,
+      publicConfiguration: {
+        ciphertext: "ZIT JXOEA WKGVF YGB",
+        substitutionHint:
+          "A monoalphabetic substitution where each character consistently maps to another letter.",
+        partialClues: { Z: "T", I: "H", T: "E" },
+      },
+      secretConfiguration: {
+        solution: "THE QUICK BROWN FOX",
+        substitutionAlphabet: "QWERTYUIOPASDFGHJKLZXCVBNM",
+      },
+      solutionHash: hashAnswer(
+        normalizeAnswer("THE QUICK BROWN FOX", { stripPunctuation: true, collapseWhitespace: true })
+      ),
+      status: ContentStatus.PUBLISHED,
+      hints: [
+        {
+          hintOrder: 1,
+          title: "Common Digraphs",
+          content:
+            "The three-letter word 'ZIT' translates to the most common English article 'THE'.",
+          unlockConditions: { minAttempts: 1 },
+        },
+        {
+          hintOrder: 2,
+          title: "Pangram Motif",
+          content: "The decoded sentence is a famous English pangram starting with 'THE QUICK...'.",
+          unlockConditions: { minAttempts: 2 },
+        },
+      ],
+    },
+    {
+      caseId: benchmarkCase.id,
+      chapterId: chapter2.id,
+      title: "The Operator's Key",
+      description:
+        "A polyalphabetic cipher protecting the emergency comms channel. Decrypt using the operative's callsign.",
+      instructions:
+        "A Vigenère cipher was employed to scramble the backup dispatch channel. Intelligence reports indicate the passphrase is the callsign of the rogue operator.",
+      puzzleType: PuzzleType.VIGENERE_CIPHER,
+      difficulty: CaseDifficulty.HARD,
+      order: 3,
+      isMultiStage: false,
+      maxAttempts: 5,
+      publicConfiguration: {
+        ciphertext: "SATDQG SADDKJ",
+        keywordLength: 6,
+        keywordHint:
+          "The keyword is the operative's tactical callsign, meaning a dark silhouette cast by light.",
+      },
+      secretConfiguration: {
+        keyword: "SHADOW",
+        solution: "ATTACK AT DAWN",
+      },
+      solutionHash: hashAnswer(
+        normalizeAnswer("ATTACK AT DAWN", { stripPunctuation: true, collapseWhitespace: true })
+      ),
+      status: ContentStatus.PUBLISHED,
+      hints: [
+        {
+          hintOrder: 1,
+          title: "Keyword Length",
+          content: "The keyword contains 6 letters. Every 6th letter uses the same shift.",
+          unlockConditions: { minAttempts: 1 },
+        },
+        {
+          hintOrder: 2,
+          title: "Callsign Decrypted",
+          content:
+            "The keyword is 'SHADOW'. Apply Vigenère decryption with SHADOW to recover the command 'ATTACK AT DAWN'.",
+          unlockConditions: { minAttempts: 2 },
+        },
+      ],
+    },
+    {
+      caseId: benchmarkCase.id,
+      chapterId: chapter2.id,
+      title: "The Midnight Sequence",
+      description:
+        "Reconstruct the chronological timeline of suspects entering Sector B based on physical sensor telemetry.",
+      instructions:
+        "Sensor logs were scrambled during the power surge. Review the physical evidence timestamps and order the suspects in the exact sequence they crossed the Sector B perimeter.",
+      puzzleType: PuzzleType.LOGIC_CHALLENGE,
+      difficulty: CaseDifficulty.MEDIUM,
+      order: 4,
+      isMultiStage: false,
+      maxAttempts: 5,
+      publicConfiguration: {
+        items: [
+          { id: "SUSPECT_A", label: "Suspect A (Dr. Elena Vance - Systems Architect)" },
+          { id: "SUSPECT_B", label: "Suspect B (Relay Technician - Night Shift)" },
+          { id: "SUSPECT_C", label: "Suspect C (Unidentified Courier - Guest Badge)" },
+          { id: "SUSPECT_D", label: "Suspect D (Marcus Thorne - Operations Controller)" },
+        ],
+        clues: [
+          "The Relay Technician (B) was logged on site first to conduct routine diagnostics.",
+          "Marcus Thorne (D) entered Sector B immediately following the technician.",
+          "Dr. Vance (A) checked in after Thorne to investigate telemetry anomalies.",
+          "The Unidentified Courier (C) forced entry last right before the blackout at 02:57 UTC.",
+        ],
+      },
+      secretConfiguration: {
+        targetSequence: ["SUSPECT_B", "SUSPECT_D", "SUSPECT_A", "SUSPECT_C"],
+        solution: "SUSPECT_B,SUSPECT_D,SUSPECT_A,SUSPECT_C",
+      },
+      solutionHash: hashAnswer(
+        normalizeAnswer("SUSPECT_B,SUSPECT_D,SUSPECT_A,SUSPECT_C", { stripWhitespace: true })
+      ),
+      status: ContentStatus.PUBLISHED,
+      hints: [
+        {
+          hintOrder: 1,
+          title: "Initial Access",
+          content: "Suspect B entered first during routine diagnostics.",
+          unlockConditions: { minAttempts: 1 },
+        },
+        {
+          hintOrder: 2,
+          title: "Breach Timeline",
+          content:
+            "The final entry was the unidentified courier (Suspect C) just prior to the blackout. Sequence: B -> D -> A -> C.",
+          unlockConditions: { minAttempts: 2 },
+        },
+      ],
+    },
+    {
+      caseId: benchmarkCase.id,
+      chapterId: chapter2.id,
+      title: "The Classified Terminal",
+      description:
+        "A multi-layered defense gateway on the main server console. Overcome the security layers in sequence.",
+      instructions:
+        "The terminal TERM-ZR-07 is locked behind a two-stage cryptographic gate. Pass the security PIN verification in Stage 1, then authorize the terminal using the master token in Stage 2.",
+      puzzleType: PuzzleType.MULTI_STAGE,
+      difficulty: CaseDifficulty.HARD,
+      order: 5,
+      isMultiStage: true,
+      maxAttempts: 5,
+      publicConfiguration: {
+        totalStages: 2,
+        terminalId: "TERM-ZR-07",
+        securityProtocol: "DEFENSE-GATEWAY-V3",
+      },
+      secretConfiguration: {
+        finalGate: true,
+      },
+      solutionHash: "MULTI_STAGE_PUZZLE",
+      status: ContentStatus.PUBLISHED,
+      hints: [
+        {
+          hintOrder: 1,
+          title: "Telemetry Inspection",
+          content:
+            "Check the telemetry graph metadata: the voltage loss percent was 94.2 and grid sector was 4B.",
+          unlockConditions: { minAttempts: 1 },
+        },
+        {
+          hintOrder: 2,
+          title: "Token Suffix",
+          content: "The terminal token format begins with 'TRM-' followed by 9921.",
+          unlockConditions: { minAttempts: 2 },
+        },
+      ],
+      stages: [
+        {
+          stageOrder: 1,
+          title: "Stage 1: Security PIN Override",
+          instructions:
+            "Enter the 4-digit auxiliary generator emergency PIN deduced from the telemetry report.",
+          puzzleType: PuzzleType.ACCESS_CODE,
+          publicConfiguration: {
+            prompt: "Enter 4-digit numeric override PIN.",
+            codeFormat: "####",
+          },
+          secretConfiguration: {
+            solution: "7492",
+            codeFormat: "PIN",
+          },
+          solutionHash: hashAnswer(normalizeAnswer("7492")),
+          maxAttempts: 5,
+        },
+        {
+          stageOrder: 2,
+          title: "Stage 2: Mainframe Terminal Token",
+          instructions: "Provide the alphanumeric authorization code assigned to terminal ZR-07.",
+          puzzleType: PuzzleType.ACCESS_CODE,
+          publicConfiguration: {
+            prompt: "Enter alphanumeric authorization token in format TRM-XXXX.",
+            codeFormat: "TRM-####",
+          },
+          secretConfiguration: {
+            solution: "TRM-9921",
+            codeFormat: "ALPHANUMERIC",
+          },
+          solutionHash: hashAnswer(
+            normalizeAnswer("TRM-9921", { stripPunctuation: false, collapseWhitespace: true })
+          ),
+          maxAttempts: 5,
+        },
+      ],
+    },
+  ];
+
+  for (const p of benchmarkPuzzles) {
+    const { hints, stages, ...puzzleData } = p as any;
+    puzzleData.configuration = puzzleData.publicConfiguration ?? {};
+
+    let existing = await prisma.puzzle.findFirst({
+      where: {
+        caseId: p.caseId,
+        title: p.title,
       },
     });
+
+    let puzzleRecord;
+    if (existing) {
+      puzzleRecord = await prisma.puzzle.update({
+        where: { id: existing.id },
+        data: puzzleData,
+      });
+    } else {
+      puzzleRecord = await prisma.puzzle.create({
+        data: puzzleData,
+      });
+    }
+
+    // Seed hints
+    if (hints && hints.length > 0) {
+      for (const hint of hints) {
+        await prisma.puzzleHint.upsert({
+          where: {
+            puzzleId_hintOrder: {
+              puzzleId: puzzleRecord.id,
+              hintOrder: hint.hintOrder,
+            },
+          },
+          update: {
+            title: hint.title,
+            content: hint.content,
+            unlockConditions: hint.unlockConditions,
+          },
+          create: {
+            puzzleId: puzzleRecord.id,
+            hintOrder: hint.hintOrder,
+            title: hint.title,
+            content: hint.content,
+            unlockConditions: hint.unlockConditions,
+          },
+        });
+      }
+    }
+
+    // Seed stages for multi-stage puzzles
+    if (stages && stages.length > 0) {
+      for (const stg of stages) {
+        await prisma.puzzleStage.upsert({
+          where: {
+            puzzleId_stageOrder: {
+              puzzleId: puzzleRecord.id,
+              stageOrder: stg.stageOrder,
+            },
+          },
+          update: {
+            title: stg.title,
+            instructions: stg.instructions,
+            puzzleType: stg.puzzleType,
+            publicConfiguration: stg.publicConfiguration,
+            secretConfiguration: stg.secretConfiguration,
+            solutionHash: stg.solutionHash,
+            maxAttempts: stg.maxAttempts,
+          },
+          create: {
+            puzzleId: puzzleRecord.id,
+            stageOrder: stg.stageOrder,
+            title: stg.title,
+            instructions: stg.instructions,
+            puzzleType: stg.puzzleType,
+            publicConfiguration: stg.publicConfiguration,
+            secretConfiguration: stg.secretConfiguration,
+            solutionHash: stg.solutionHash,
+            maxAttempts: stg.maxAttempts,
+          },
+        });
+      }
+    }
   }
 
   console.log("✅ Idempotent database seeding completed successfully.");

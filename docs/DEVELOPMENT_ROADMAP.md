@@ -15,9 +15,9 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 | **05** | **Player Interface**               |                                               **Completed**                                               | Investigator dossier, profile setup, preferences, active case status view.                                      |
 | **06** | **Case Management**                |                                               **Completed**                                               | Case catalog, difficulty ratings, acts, episodic releases, immutable case definitions.                          |
 | **07** | **Investigation Engine**           |                                               **Completed**                                               | Session state machine, investigation timelines, stage transitions, progress tracking.                           |
-| **08** | Evidence System                    |                                                  Pending                                                  | Asymmetric clue distribution, clue cards, forensic document viewer, IDOR protection.                            |
-| **09** | Team Collaboration                 |                                                  Pending                                                  | Squad formation, invite codes, squad detective rooms, safe clue sharing channels.                               |
-| **10** | Interactive Puzzles                |                                                  Pending                                                  | Minigames, cipher decoders, cryptograms, logic puzzles, server-side validation.                                 |
+| **08** | **Evidence System**                |                                               **Completed**                                               | Asymmetric clue distribution, clue cards, forensic document viewer, IDOR protection.                            |
+| **09** | **Team Collaboration**             |                                               **Completed**                                               | Squad formation, invite codes, squad detective rooms, safe clue sharing channels.                               |
+| **10** | **Interactive Puzzles**            |                                               **Completed**                                               | Minigames, cipher decoders, cryptograms, logic puzzles, server-side validation.                                 |
 | **11** | Investigation Board                |                                                  Pending                                                  | Interactive canvas/graph for linking suspects, clues, timelines, and motives.                                   |
 | **12** | Submissions and Rewards            |                                                  Pending                                                  | Final theory filing, evidence citation, evaluation scoring, XP, detective badges.                               |
 | **13** | Admin Dashboard                    |                                                  Pending                                                  | Authoring studio for cases, content moderation, user auditing, system metrics.                                  |
@@ -247,3 +247,58 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 - [x] Automated test suite implemented (`tests/teams.test.ts` — 18 tests; 211 total tests passing across all 10 test files).
 - [x] Architecture and API documentation authored (`docs/TEAM_COLLABORATION.md`).
 - [x] Zero regressions across Phase 01–08 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.
+
+---
+
+## Phase 10: Interactive Puzzle Engine & Investigation Challenges — Acceptance Checklist
+
+- [x] Extended Prisma schema:
+  - Extended `PuzzleType` enum with 7 types (`CAESAR_CIPHER`, `SUBSTITUTION_CIPHER`, `VIGENERE_CIPHER`, `HIDDEN_MESSAGE`, `LOGIC_CHALLENGE`, `ACCESS_CODE`, `MULTI_STAGE`).
+  - Added `PuzzleProgressStatus` enum (`LOCKED`, `UNLOCKED`, `IN_PROGRESS`, `SOLVED`, `FAILED`).
+  - Extended `Puzzle` model with `instructions`, `publicConfiguration`, `secretConfiguration`, `maxAttempts`, `order`, `isMultiStage`.
+  - Added `PuzzleStage` model (`puzzleId`, `stageOrder`, `title`, `instructions`, `puzzleType`, `publicConfiguration`, `secretConfiguration`, `solutionHash`, `maxAttempts`, `@@unique([puzzleId, stageOrder])`).
+  - Extended `PuzzleAttempt` with `stageId` and `isCorrect`.
+  - Added `PuzzleProgress` model (`puzzleId`, `investigationId`, `status`, `currentStageOrder`, `completedAt`, `solvedByPlayerId`, `@@unique([puzzleId, investigationId])`).
+  - Added `PuzzleHint` and `InvestigationUnlockedHint` models for progressive tactical assistance.
+- [x] Database migration applied to live Neon PostgreSQL (`20261106113507_add_puzzle_engine_and_stages`).
+- [x] Cryptographic normalization and timing-safe keyed HMAC-SHA256 comparison implemented (`crypto.util.ts`).
+- [x] Pluggable challenge validators implemented under `PuzzleValidatorRegistry`:
+  - `CaesarCipherValidator`
+  - `SubstitutionCipherValidator`
+  - `VigenereCipherValidator`
+  - `HiddenMessageValidator`
+  - `LogicChallengeValidator`
+  - `AccessCodeValidator`
+- [x] Access guard implemented (`PuzzleGuard`) with active profile, participant, squad membership, and act unlock checks.
+- [x] Domain service implemented (`PuzzleService`):
+  - Secret separation: client DTOs strictly scrub secret configurations and solution hashes.
+  - Concurrency control: `pg_advisory_xact_lock` prevents race conditions.
+  - Rate limiting / attempt lockout: enforces `maxAttempts` with `HTTP 429 ATTEMPT_LIMIT_REACHED`.
+  - Multi-stage sequence progression: advancing through stages until final puzzle solve.
+  - Cooperative investigation progress: solving marks `PuzzleProgress` as `SOLVED` across all squad operatives.
+  - Progressive hint unlock: unlocks conditionally upon fulfilling attempt thresholds.
+- [x] REST API endpoints implemented under `/api/investigations/[investigationId]/puzzles/**`:
+  - `GET /api/investigations/[investigationId]/puzzles`
+  - `GET /api/investigations/[investigationId]/puzzles/[puzzleId]`
+  - `GET /api/investigations/[investigationId]/puzzles/[puzzleId]/attempts`
+  - `POST /api/investigations/[investigationId]/puzzles/[puzzleId]/attempts`
+  - `GET /api/investigations/[investigationId]/puzzles/[puzzleId]/stages/[stageId]`
+  - `POST /api/investigations/[investigationId]/puzzles/[puzzleId]/stages/[stageId]/attempts`
+  - `POST /api/investigations/[investigationId]/puzzles/[puzzleId]/hints/[hintId]/unlock`
+- [x] 5 benchmark puzzles and stages seeded in `prisma/seed.ts` for `CASE-001-MIDNIGHT-PROTOCOL`:
+  1. `The Shifted Message` (Caesar cipher, Act 1, Easy)
+  2. `The Broken Alphabet` (Substitution cipher, Act 1, Medium)
+  3. `The Operator's Key` (Vigenère cipher, Act 2, Hard)
+  4. `The Midnight Sequence` (Logic ordering challenge, Act 2, Medium)
+  5. `The Classified Terminal` (Multi-stage access code, Act 2, Hard)
+- [x] Frontend UI pages & interactive components:
+  - `/investigations/[investigationId]/puzzles` (Challenge Directory)
+  - `/investigations/[investigationId]/puzzles/[puzzleId]` (Challenge Room & Dispatch Console)
+  - `PuzzleCard`: Status badges, difficulty grades, stage count, act indicators.
+  - `CipherScratchpad`: Real-time Caesar slider/offset tester and Vigenère key tester.
+  - `LogicOrderingScratchpad`: Interactive timeline sequence ordering tool.
+  - `HintsDrawer`: Progressive conditional hint disclosure panel.
+  - Integration: "Cipher Terminal" navigation link in `WorkspaceHeader` and workspace dashboard.
+- [x] Comprehensive automated test suite created (`tests/puzzles.test.ts` — 23 tests; 245 total tests passing across all 11 test files).
+- [x] Complete architecture documentation authored (`docs/PUZZLE_SYSTEM.md`).
+- [x] Zero regressions across Phase 01–09 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.

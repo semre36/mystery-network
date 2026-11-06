@@ -40,4 +40,3 @@ ALTER TABLE "evidence_notes" ADD CONSTRAINT "evidence_notes_clueId_fkey" FOREIGN
 
 -- AddForeignKey
 ALTER TABLE "evidence_notes" ADD CONSTRAINT "evidence_notes_playerId_fkey" FOREIGN KEY ("playerId") REFERENCES "player_profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-

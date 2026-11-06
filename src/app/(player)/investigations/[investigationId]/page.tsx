@@ -144,18 +144,24 @@ export default async function InvestigationWorkspacePage({
             </p>
           </div>
 
-          <div className="rounded-xl bg-[#0a0f1b] border border-[#151f33] p-4 space-y-2 opacity-75">
+          <Link
+            href={`/investigations/${workspace.id}/puzzles`}
+            className="group rounded-xl bg-[#0c1222] border border-amber-500/40 p-4 space-y-2 hover:border-amber-400 hover:bg-[#10192e] transition-all shadow-md shadow-amber-950/20 cursor-pointer"
+          >
             <div className="flex items-center justify-between">
-              <KeyRound className="w-4 h-4 text-slate-500" />
-              <span className="text-[9px] font-mono text-slate-500 uppercase px-1.5 py-0.5 rounded bg-[#101726] border border-[#1c273e]">
-                Phase 10
+              <KeyRound className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+              <span className="text-[9px] font-mono text-amber-300 uppercase px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-700/60">
+                Active Console
               </span>
             </div>
-            <div className="text-xs font-semibold text-slate-300 font-sans">Cipher Terminal</div>
-            <p className="text-[11px] text-slate-500">
+            <div className="text-xs font-semibold text-slate-100 group-hover:text-amber-200 transition-colors font-sans flex items-center justify-between">
+              <span>Cipher Terminal</span>
+              <span className="text-[10px] text-amber-400 font-mono">Access →</span>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
               Cryptograms, frequency analysis & logic puzzles.
             </p>
-          </div>
+          </Link>
 
           <div className="rounded-xl bg-[#0a0f1b] border border-[#151f33] p-4 space-y-2 opacity-75">
             <div className="flex items-center justify-between">

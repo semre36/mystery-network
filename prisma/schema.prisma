@@ -102,6 +102,21 @@ enum PuzzleType {
   CROSS_REFERENCE
   DECODER_WHEEL
   AUDIO_SPECTROGRAM
+  CAESAR_CIPHER
+  SUBSTITUTION_CIPHER
+  VIGENERE_CIPHER
+  HIDDEN_MESSAGE
+  LOGIC_CHALLENGE
+  ACCESS_CODE
+  MULTI_STAGE
+}
+
+enum PuzzleProgressStatus {
+  LOCKED
+  UNLOCKED
+  IN_PROGRESS
+  SOLVED
+  FAILED
 }
 
 enum AttemptStatus {
@@ -229,6 +244,8 @@ model PlayerProfile {
   sharedEvidenceTo    EvidenceShare[]            @relation("SharedEvidenceTo")
   evidenceNotes       EvidenceNote[]
   puzzleAttempts      PuzzleAttempt[]
+  solvedPuzzles       PuzzleProgress[]
+  unlockedHints       InvestigationUnlockedHint[]
   ownedTeams          Team[]                     @relation("TeamOwner")
   teamMemberships     TeamMembership[]
   createdInvitations  TeamInvitation[]           @relation("InvitationCreator")
@@ -354,6 +371,8 @@ model Investigation {
   evidenceShares  EvidenceShare[]
   evidenceNotes   EvidenceNote[]
   puzzleAttempts  PuzzleAttempt[]
+  puzzleProgress  PuzzleProgress[]
+  unlockedHints   InvestigationUnlockedHint[]
   submissions     CaseSubmission[]
   xpTransactions  XPTransaction[]
 
@@ -513,23 +532,32 @@ model EvidenceAsset {
 // ------------------------------------------------------------------------------
 
 model Puzzle {
-  id               String         @id @default(uuid()) @db.Uuid
-  caseId           String         @db.Uuid
-  case             Case           @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  chapterId        String?        @db.Uuid
-  chapter          CaseChapter?   @relation(fields: [chapterId], references: [id], onDelete: SetNull)
-  title            String
-  description      String         @db.Text
-  puzzleType       PuzzleType
-  difficulty       CaseDifficulty @default(MEDIUM)
-  configuration    Json
-  solutionHash     String
-  unlockConditions Json?
-  status           ContentStatus  @default(DRAFT)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  id                  String         @id @default(uuid()) @db.Uuid
+  caseId              String         @db.Uuid
+  case                Case           @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  chapterId           String?        @db.Uuid
+  chapter             CaseChapter?   @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  title               String
+  description         String         @db.Text
+  instructions        String?        @db.Text
+  puzzleType          PuzzleType
+  difficulty          CaseDifficulty @default(MEDIUM)
+  configuration       Json
+  publicConfiguration Json?
+  secretConfiguration Json?
+  solutionHash        String
+  unlockConditions    Json?
+  maxAttempts         Int?
+  order               Int            @default(1)
+  isMultiStage        Boolean        @default(false)
+  status              ContentStatus  @default(DRAFT)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 
   attempts PuzzleAttempt[]
+  stages   PuzzleStage[]
+  progress PuzzleProgress[]
+  hints    PuzzleHint[]
 
   @@index([caseId])
   @@index([chapterId])
@@ -538,24 +566,108 @@ model Puzzle {
   @@map("puzzles")
 }
 
+model PuzzleStage {
+  id                  String         @id @default(uuid()) @db.Uuid
+  puzzleId            String         @db.Uuid
+  puzzle              Puzzle         @relation(fields: [puzzleId], references: [id], onDelete: Cascade)
+  stageOrder          Int
+  title               String
+  instructions        String?        @db.Text
+  puzzleType          PuzzleType?
+  publicConfiguration Json
+  secretConfiguration Json?
+  solutionHash        String?
+  maxAttempts         Int?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  attempts PuzzleAttempt[]
+  hints    PuzzleHint[]
+
+  @@unique([puzzleId, stageOrder])
+  @@index([puzzleId])
+  @@map("puzzle_stages")
+}
+
 model PuzzleAttempt {
-  id              String        @id @default(uuid()) @db.Uuid
-  puzzleId        String        @db.Uuid
-  puzzle          Puzzle        @relation(fields: [puzzleId], references: [id], onDelete: Restrict)
-  investigationId String        @db.Uuid
-  investigation   Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
-  playerId        String        @db.Uuid
-  player          PlayerProfile @relation(fields: [playerId], references: [id], onDelete: Restrict)
-  submittedAnswer String        @db.Text
+  id              String         @id @default(uuid()) @db.Uuid
+  puzzleId        String         @db.Uuid
+  puzzle          Puzzle         @relation(fields: [puzzleId], references: [id], onDelete: Restrict)
+  stageId         String?        @db.Uuid
+  stage           PuzzleStage?   @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  investigationId String         @db.Uuid
+  investigation   Investigation  @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  playerId        String         @db.Uuid
+  player          PlayerProfile  @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  submittedAnswer String         @db.Text
   resultStatus    AttemptStatus
-  attemptedAt     DateTime      @default(now())
-  evaluatedAt     DateTime      @default(now())
+  isCorrect       Boolean        @default(false)
+  attemptedAt     DateTime       @default(now())
+  evaluatedAt     DateTime       @default(now())
 
   @@index([puzzleId])
   @@index([investigationId])
   @@index([playerId])
+  @@index([stageId])
   @@index([attemptedAt])
   @@map("puzzle_attempts")
+}
+
+model PuzzleProgress {
+  id                String               @id @default(uuid()) @db.Uuid
+  puzzleId          String               @db.Uuid
+  puzzle            Puzzle               @relation(fields: [puzzleId], references: [id], onDelete: Cascade)
+  investigationId   String               @db.Uuid
+  investigation     Investigation        @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  status            PuzzleProgressStatus @default(IN_PROGRESS)
+  currentStageOrder Int                  @default(1)
+  completedAt       DateTime?
+  solvedByPlayerId  String?              @db.Uuid
+  solvedBy          PlayerProfile?       @relation(fields: [solvedByPlayerId], references: [id], onDelete: SetNull)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@unique([puzzleId, investigationId])
+  @@index([investigationId])
+  @@index([puzzleId])
+  @@index([status])
+  @@map("puzzle_progress")
+}
+
+model PuzzleHint {
+  id               String       @id @default(uuid()) @db.Uuid
+  puzzleId         String       @db.Uuid
+  puzzle           Puzzle       @relation(fields: [puzzleId], references: [id], onDelete: Cascade)
+  stageId          String?      @db.Uuid
+  stage            PuzzleStage? @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  hintOrder        Int
+  title            String?
+  content          String       @db.Text
+  unlockConditions Json?
+  createdAt        DateTime     @default(now())
+
+  unlockedHints InvestigationUnlockedHint[]
+
+  @@unique([puzzleId, hintOrder])
+  @@index([puzzleId])
+  @@index([stageId])
+  @@map("puzzle_hints")
+}
+
+model InvestigationUnlockedHint {
+  id                  String        @id @default(uuid()) @db.Uuid
+  investigationId     String        @db.Uuid
+  investigation       Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  hintId              String        @db.Uuid
+  hint                PuzzleHint    @relation(fields: [hintId], references: [id], onDelete: Cascade)
+  unlockedByPlayerId  String        @db.Uuid
+  unlockedBy          PlayerProfile @relation(fields: [unlockedByPlayerId], references: [id], onDelete: Restrict)
+  unlockedAt          DateTime      @default(now())
+
+  @@unique([investigationId, hintId])
+  @@index([investigationId])
+  @@index([hintId])
+  @@map("investigation_unlocked_hints")
 }
 
 // ------------------------------------------------------------------------------
