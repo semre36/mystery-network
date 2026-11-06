@@ -49,11 +49,13 @@ stateDiagram-v2
 | `NOT_STARTED`  | `ABANDON`      | `ABANDONED`      | Session cancelled prior to entering the field.                                             |
 | `IN_PROGRESS`  | `PAUSE`        | `PAUSED`         | Operative steps away. Freezes timer and disables progression updates.                      |
 | `IN_PROGRESS`  | `ABANDON`      | `ABANDONED`      | Operative forfeits the investigation. Terminal state.                                      |
+| `IN_PROGRESS`  | `FAIL`         | `FAILED`         | Critical objective failure. Terminal state. Sets `completedAt = now()`.                    |
 | `IN_PROGRESS`  | `COMPLETE`     | `SOLVED`         | Valid only when **all tactical acts** have status `COMPLETED`. Sets `completedAt = now()`. |
 | `PAUSED`       | `RESUME`       | `IN_PROGRESS`    | Operative re-enters active investigation.                                                  |
 | `PAUSED`       | `ABANDON`      | `ABANDONED`      | Operative forfeits while in pause.                                                         |
+| `PAUSED`       | `FAIL`         | `FAILED`         | Mission failure evaluated while paused. Terminal state. Sets `completedAt = now()`.        |
 | `SOLVED`       | _None_         | _Immutable_      | Concluded cases cannot be re-opened; historical integrity is preserved.                    |
-| `FAILED`       | _None_         | _Immutable_      | Failed operations cannot be silently resumed.                                              |
+| `FAILED`       | _None_         | _Immutable_      | Failed operations cannot be silently resumed; preserved in history.                        |
 | `ABANDONED`    | _None_         | _Immutable_      | Abandoned records remain preserved in history.                                             |
 
 ---
@@ -67,10 +69,11 @@ When an operative requests `POST /api/investigations` with a `caseIdentifier`:
 1. The case definition is resolved and validated as `ContentStatus.PUBLISHED`.
 2. The authenticated player's `PlayerProfile` is resolved.
 3. Within an interactive database transaction:
+   - **PostgreSQL Advisory Lock**: Acquires a transactional advisory lock scoped to `(hashtext(playerId), hashtext(caseRecord.id))` via `SELECT pg_advisory_xact_lock(...)`. This serializes concurrent initialization attempts for the same player and case at the database level without blocking concurrent requests for different players or different cases.
    - Queries `InvestigationParticipant` for active membership in any investigation on the target case with status in `[IN_PROGRESS, PAUSED, NOT_STARTED]`.
-   - **If an active session exists**: Reuses and returns the existing `investigationId` (`wasResumed: true`). If it was `PAUSED`, it automatically transitions to `IN_PROGRESS`.
+   - **If an active session exists**: Reuses and returns the existing `investigationId` (`wasResumed: true`). If it was `PAUSED` or `NOT_STARTED`, it automatically transitions to `IN_PROGRESS`.
    - **If no active session exists**: Creates a new `Investigation`, adds the player as `InvestigationParticipant` (`status: ACTIVE`), initializes sequential `InvestigationProgress` records, and returns `wasResumed: false`.
-4. Concurrency guarantee: Interactive transactions and participant uniqueness prevent race-condition duplicates.
+4. Concurrency guarantee: Transactional advisory locking serializes simultaneous requests, ensuring both resolve to the identical active session without duplicate record creation. Concluded sessions (`SOLVED`, `FAILED`, `ABANDONED`) remain safely preserved in player history.
 
 ---
 
@@ -88,13 +91,17 @@ Case: CASE-001-MIDNIGHT-PROTOCOL
    - Allowed only if the chapter status is `UNLOCKED`.
    - Transitions chapter status to `IN_PROGRESS`.
    - Attempts to start a `LOCKED` chapter return HTTP 400 (`CHAPTER_LOCKED`).
+   - Chapters already `COMPLETED` reject restart attempts with HTTP 400 (`CHAPTER_ALREADY_COMPLETED`).
 2. **Completing a Chapter (`COMPLETE_CHAPTER`)**:
    - Allowed only if the chapter status is `IN_PROGRESS` or `UNLOCKED`.
    - Sets chapter status to `COMPLETED` and `completedAt = now()`.
-   - Finds the subsequent chapter in numerical sequence (`chapterOrder + 1`).
+   - Discovers the immediate next available chapter in sequence (`chapterOrder > currentProgress.chapter.chapterOrder` sorted ascending), seamlessly supporting arbitrary or non-consecutive numbering (e.g. 1, 3, 5).
    - If a subsequent chapter exists and is `LOCKED`, automatically updates it to `UNLOCKED` and sets `unlockedAt = now()`.
+   - Repeated completion of an already completed chapter is rejected (`CHAPTER_ALREADY_COMPLETED`).
 3. **Session State Gate**:
    - Progression actions require the parent investigation to be in `IN_PROGRESS` status. Requests on `PAUSED` or terminal investigations return HTTP 400 (`INVESTIGATION_NOT_ACTIVE`).
+4. **Resolution Gate**:
+   - Concluding an investigation (`COMPLETE` action transitioning to `SOLVED`) strictly requires all chapters in the investigation to have status `COMPLETED`. Any incomplete chapter returns HTTP 400 (`INCOMPLETE_CHAPTERS`).
 
 ---
 
