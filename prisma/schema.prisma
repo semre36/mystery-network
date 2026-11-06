@@ -182,6 +182,47 @@ enum NotificationType {
   SYSTEM_ALERT
 }
 
+enum BoardNodeType {
+  EVIDENCE
+  CHARACTER
+  LOCATION
+  EVENT
+  NOTE
+  THEORY
+}
+
+enum BoardRelationshipType {
+  RELATED_TO
+  SUPPORTS
+  CONTRADICTS
+  CONNECTED_TO
+  SUSPECTED_OF
+  PRESENT_AT
+  COMMUNICATED_WITH
+  CUSTOM
+}
+
+enum TimePrecision {
+  EXACT
+  APPROXIMATE
+  DATE_ONLY
+  UNKNOWN
+}
+
+enum TheoryStatus {
+  DRAFT
+  ACTIVE
+  SUPPORTED
+  CHALLENGED
+  ARCHIVED
+}
+
+enum TheoryEvidenceRelationship {
+  SUPPORTS
+  CONTRADICTS
+  NEUTRAL
+}
+
 // ------------------------------------------------------------------------------
 // DOMAIN A: IDENTITY & PLAYER MANAGEMENT
 // ------------------------------------------------------------------------------
@@ -254,6 +295,11 @@ model PlayerProfile {
   xpTransactions      XPTransaction[]
   achievements        UserAchievement[]
   notifications       Notification[]
+  createdBoardNodes       BoardNode[]                  @relation("CreatedBoardNodes")
+  createdBoardConnections BoardConnection[]            @relation("CreatedBoardConnections")
+  createdTimelineEvents   InvestigationTimelineEvent[] @relation("CreatedTimelineEvents")
+  createdTheories         InvestigationTheory[]        @relation("CreatedTheories")
+  createdTheoryEvidence   TheoryEvidence[]             @relation("CreatedTheoryEvidence")
 
   @@index([codename])
   @@index([xp(sort: Desc)])
@@ -375,6 +421,9 @@ model Investigation {
   unlockedHints   InvestigationUnlockedHint[]
   submissions     CaseSubmission[]
   xpTransactions  XPTransaction[]
+  board           InvestigationBoard?
+  timelineEvents  InvestigationTimelineEvent[]
+  theories        InvestigationTheory[]
 
   @@index([caseId])
   @@index([teamId])
@@ -441,6 +490,7 @@ model Clue {
   assignments   ClueAssignment[]
   assets        EvidenceAsset[]
   evidenceNotes EvidenceNote[]
+  theoryEvidence TheoryEvidence[]
 
   @@unique([caseId, clueCode])
   @@index([caseId])
@@ -898,4 +948,141 @@ model AdminAuditLog {
   @@index([resourceType, resourceId])
   @@index([createdAt(sort: Desc)])
   @@map("admin_audit_logs")
+}
+
+// ------------------------------------------------------------------------------
+// DOMAIN K: INVESTIGATION BOARD, TIMELINE & THEORIES (PHASE 11)
+// ------------------------------------------------------------------------------
+
+model InvestigationBoard {
+  id              String        @id @default(uuid()) @db.Uuid
+  investigationId String        @unique @db.Uuid
+  investigation   Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  title           String        @default("Operational Crime Board")
+  description     String?       @db.Text
+  viewport        Json?         @default("{\"zoom\": 1, \"panX\": 0, \"panY\": 0}")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  nodes       BoardNode[]
+  connections BoardConnection[]
+
+  @@index([investigationId])
+  @@map("investigation_boards")
+}
+
+model BoardNode {
+  id                 String             @id @default(uuid()) @db.Uuid
+  boardId            String             @db.Uuid
+  board              InvestigationBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  nodeType           BoardNodeType
+  referencedEntityId String?            @db.Uuid
+  title              String
+  description        String?            @db.Text
+  positionX          Float              @default(100)
+  positionY          Float              @default(100)
+  width              Float?             @default(240)
+  height             Float?
+  color              String?
+  metadata           Json?              @default("{}")
+  createdByPlayerId  String             @db.Uuid
+  createdBy          PlayerProfile      @relation("CreatedBoardNodes", fields: [createdByPlayerId], references: [id], onDelete: Restrict)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  sourceConnections BoardConnection[] @relation("SourceNode")
+  targetConnections BoardConnection[] @relation("TargetNode")
+
+  @@index([boardId])
+  @@index([nodeType])
+  @@index([referencedEntityId])
+  @@index([createdByPlayerId])
+  @@map("board_nodes")
+}
+
+model BoardConnection {
+  id                String                @id @default(uuid()) @db.Uuid
+  boardId           String                @db.Uuid
+  board             InvestigationBoard    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  sourceNodeId      String                @db.Uuid
+  sourceNode        BoardNode             @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNodeId      String                @db.Uuid
+  targetNode        BoardNode             @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+  relationshipType  BoardRelationshipType @default(RELATED_TO)
+  label             String?
+  description       String?               @db.Text
+  createdByPlayerId String                @db.Uuid
+  createdBy         PlayerProfile         @relation("CreatedBoardConnections", fields: [createdByPlayerId], references: [id], onDelete: Restrict)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@unique([boardId, sourceNodeId, targetNodeId, relationshipType])
+  @@index([boardId])
+  @@index([sourceNodeId])
+  @@index([targetNodeId])
+  @@index([relationshipType])
+  @@index([createdByPlayerId])
+  @@map("board_connections")
+}
+
+model InvestigationTimelineEvent {
+  id                String        @id @default(uuid()) @db.Uuid
+  investigationId   String        @db.Uuid
+  investigation     Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  title             String
+  description       String        @db.Text
+  eventTime         DateTime?
+  timePrecision     TimePrecision @default(EXACT)
+  rawTimeLabel      String?
+  metadata          Json?         @default("{}")
+  createdByPlayerId String        @db.Uuid
+  createdBy         PlayerProfile @relation("CreatedTimelineEvents", fields: [createdByPlayerId], references: [id], onDelete: Restrict)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([investigationId])
+  @@index([eventTime])
+  @@index([createdByPlayerId])
+  @@map("investigation_timeline_events")
+}
+
+model InvestigationTheory {
+  id                String        @id @default(uuid()) @db.Uuid
+  investigationId   String        @db.Uuid
+  investigation     Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  title             String
+  description       String        @db.Text
+  status            TheoryStatus  @default(ACTIVE)
+  createdByPlayerId String        @db.Uuid
+  createdBy         PlayerProfile @relation("CreatedTheories", fields: [createdByPlayerId], references: [id], onDelete: Restrict)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  evidence TheoryEvidence[]
+
+  @@index([investigationId])
+  @@index([status])
+  @@index([createdByPlayerId])
+  @@map("investigation_theories")
+}
+
+model TheoryEvidence {
+  id                String                     @id @default(uuid()) @db.Uuid
+  theoryId          String                     @db.Uuid
+  theory            InvestigationTheory        @relation(fields: [theoryId], references: [id], onDelete: Cascade)
+  clueId            String                     @db.Uuid
+  clue              Clue                       @relation(fields: [clueId], references: [id], onDelete: Cascade)
+  relationship      TheoryEvidenceRelationship @default(SUPPORTS)
+  explanation       String?                    @db.Text
+  createdByPlayerId String                     @db.Uuid
+  createdBy         PlayerProfile              @relation("CreatedTheoryEvidence", fields: [createdByPlayerId], references: [id], onDelete: Restrict)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  @@unique([theoryId, clueId])
+  @@index([theoryId])
+  @@index([clueId])
+  @@index([relationship])
+  @@index([createdByPlayerId])
+  @@map("theory_evidence")
 }

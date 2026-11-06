@@ -163,18 +163,24 @@ export default async function InvestigationWorkspacePage({
             </p>
           </Link>
 
-          <div className="rounded-xl bg-[#0a0f1b] border border-[#151f33] p-4 space-y-2 opacity-75">
+          <Link
+            href={`/investigations/${workspace.id}/board`}
+            className="group rounded-xl bg-[#0c1222] border border-purple-500/40 p-4 space-y-2 hover:border-purple-400 hover:bg-[#10192e] transition-all shadow-md shadow-purple-950/20 cursor-pointer"
+          >
             <div className="flex items-center justify-between">
-              <Network className="w-4 h-4 text-slate-500" />
-              <span className="text-[9px] font-mono text-slate-500 uppercase px-1.5 py-0.5 rounded bg-[#101726] border border-[#1c273e]">
-                Phase 11
+              <Network className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
+              <span className="text-[9px] font-mono text-purple-300 uppercase px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-700/60">
+                Active Board
               </span>
             </div>
-            <div className="text-xs font-semibold text-slate-300 font-sans">Crime Board</div>
-            <p className="text-[11px] text-slate-500">
+            <div className="text-xs font-semibold text-slate-100 group-hover:text-purple-200 transition-colors font-sans flex items-center justify-between">
+              <span>Crime Board</span>
+              <span className="text-[10px] text-purple-400 font-mono">Access →</span>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
               Visual corkboard linking suspects, timelines & clues.
             </p>
-          </div>
+          </Link>
         </div>
       </section>
     </div>

@@ -18,7 +18,7 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 | **08** | **Evidence System**                |                                               **Completed**                                               | Asymmetric clue distribution, clue cards, forensic document viewer, IDOR protection.                            |
 | **09** | **Team Collaboration**             |                                               **Completed**                                               | Squad formation, invite codes, squad detective rooms, safe clue sharing channels.                               |
 | **10** | **Interactive Puzzles**            |                                               **Completed**                                               | Minigames, cipher decoders, cryptograms, logic puzzles, server-side validation.                                 |
-| **11** | Investigation Board                |                                                  Pending                                                  | Interactive canvas/graph for linking suspects, clues, timelines, and motives.                                   |
+| **11** | **Investigation Board**            |                                               **Completed**                                               | Interactive corkboard canvas, evidence relationships, timeline forensics, and hypothesis formulation.           |
 | **12** | Submissions and Rewards            |                                                  Pending                                                  | Final theory filing, evidence citation, evaluation scoring, XP, detective badges.                               |
 | **13** | Admin Dashboard                    |                                                  Pending                                                  | Authoring studio for cases, content moderation, user auditing, system metrics.                                  |
 | **14** | Testing, Optimization & Deployment |                                                  Pending                                                  | End-to-end load testing, security audits, caching optimization, production deployment.                          |
@@ -302,3 +302,56 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 - [x] Comprehensive automated test suite created (`tests/puzzles.test.ts` — 23 tests; 245 total tests passing across all 11 test files).
 - [x] Complete architecture documentation authored (`docs/PUZZLE_SYSTEM.md`).
 - [x] Zero regressions across Phase 01–09 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.
+
+---
+
+## Phase 11: Investigation Board, Timelines & Theories — Acceptance Checklist
+
+- [x] Prisma relational models & enums implemented in `prisma/schema.prisma`:
+  - Enums: `BoardNodeType`, `BoardRelationshipType`, `TimePrecision`, `TheoryStatus`, `TheoryEvidenceRelationship`.
+  - Models: `InvestigationBoard`, `BoardNode`, `BoardConnection`, `InvestigationTimelineEvent`, `InvestigationTheory`, `TheoryEvidence`.
+- [x] Live Neon PostgreSQL migration successfully applied (`20261106123606_add_investigation_board_timelines_and_theories`).
+- [x] Domain module architecture implemented under `src/modules/investigation-board`:
+  - `BoardGuard`: Authentication, session verification, disbanded squad detection, and evidence declassification checks.
+  - `InvestigationBoardService`: Dynamic board retrieval/initialization, viewport persistence, entity preview hydration.
+  - `BoardNodeService`: Node CRUD operations with entity ownership & case verification.
+  - `BoardConnectionService`: Relationship connections with self-connection rejection, cross-board validation, and duplicate prevention.
+  - `TimelineService`: Chronological forensics event tracking with variable precision (`EXACT`, `APPROXIMATE`, `DATE_ONLY`, `TIME_ONLY`).
+  - `TheoryService`: Deductive hypothesis formulation with supporting/contradicting evidence citations.
+- [x] REST API endpoints implemented under `/api/investigations/[investigationId]`:
+  - `GET /api/investigations/[investigationId]/board`
+  - `PATCH /api/investigations/[investigationId]/board`
+  - `POST /api/investigations/[investigationId]/board/nodes`
+  - `PATCH /api/investigations/[investigationId]/board/nodes/[nodeId]`
+  - `DELETE /api/investigations/[investigationId]/board/nodes/[nodeId]`
+  - `POST /api/investigations/[investigationId]/board/connections`
+  - `PATCH /api/investigations/[investigationId]/board/connections/[connectionId]`
+  - `DELETE /api/investigations/[investigationId]/board/connections/[connectionId]`
+  - `GET /api/investigations/[investigationId]/timeline`
+  - `POST /api/investigations/[investigationId]/timeline`
+  - `PATCH /api/investigations/[investigationId]/timeline/[eventId]`
+  - `DELETE /api/investigations/[investigationId]/timeline/[eventId]`
+  - `GET /api/investigations/[investigationId]/theories`
+  - `POST /api/investigations/[investigationId]/theories`
+  - `GET /api/investigations/[investigationId]/theories/[theoryId]`
+  - `PATCH /api/investigations/[investigationId]/theories/[theoryId]`
+  - `DELETE /api/investigations/[investigationId]/theories/[theoryId]`
+  - `POST /api/investigations/[investigationId]/theories/[theoryId]/evidence`
+  - `DELETE /api/investigations/[investigationId]/theories/[theoryId]/evidence/[associationId]`
+- [x] Frontend interactive canvas & workbench components (`src/components/board/`):
+  - `InvestigationBoardCanvas`: Pan & zoom corkboard workspace, drag-and-drop node positioning, real-time persistence.
+  - `BoardCard`: Thematic crime board pin cards with push-pin styling, color accents, and type indicators.
+  - `ConnectionLine`: SVG connection threads with drooping curves, custom colors, and relationship badges.
+  - `ConnectionDialog`: Modal for establishing semantic connections between pins.
+  - `EvidenceDrawer`: Slide-over drawer for browsing declassified case evidence and pinning to canvas.
+  - `CharactersDrawer`: Slide-over drawer for browsing case suspects/persons of interest and pinning to canvas.
+  - `TimelineDrawer`: Chronological log with exact/approximate timestamp tagging.
+  - `TheoriesDrawer`: Hypothesis builder with supporting/contradicting evidence citation workbench.
+- [x] Navigation routes & integration:
+  - `/investigations/[investigationId]/board`: Dedicated investigation board route.
+  - `/board`: Direct player route resolving to the active investigation or session picker.
+  - `WorkspaceHeader`: Persistent "Crime Board" quick navigation button.
+  - Case workspace dashboard: Direct Crime Board launcher card.
+- [x] Comprehensive automated test suite created (`tests/investigation-board.test.ts` — 19 tests; 271 total tests passing across all 12 test files).
+- [x] Architecture documentation authored (`docs/INVESTIGATION_BOARD.md`).
+- [x] Zero regressions across Phase 01–10 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.

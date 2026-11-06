@@ -16,6 +16,7 @@ import {
   Users,
   UserPlus,
   KeyRound,
+  Network,
 } from "lucide-react";
 import { InvestigationStatus, CaseDifficulty } from "@prisma/client";
 import type { SafeInvestigationWorkspaceDto } from "@/modules/investigations/types/investigation.types";
@@ -242,6 +243,15 @@ export function WorkspaceHeader({ workspace, onRefresh }: WorkspaceHeaderProps) 
             >
               <KeyRound className="w-3.5 h-3.5 text-amber-400" />
               <span>Cipher Terminal</span>
+            </Link>
+
+            {/* Crime Board Quick Access */}
+            <Link
+              href={`/investigations/${workspace.id}/board`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-950/60 hover:bg-purple-900/60 border border-purple-500/40 text-purple-300 text-xs font-mono font-semibold transition-colors"
+            >
+              <Network className="w-3.5 h-3.5 text-purple-400" />
+              <span>Crime Board</span>
             </Link>
 
             {/* Pause Action */}

@@ -32,10 +32,12 @@ mystery-network/
 │   │   │   ├── investigations/
 │   │   │   │   ├── page.tsx       # Phase 07: Player investigation sessions history
 │   │   │   │   └── [investigationId]/
-│   │   │   │       └── page.tsx   # Phase 07: Active investigation operative workspace
-│   │   │   ├── evidence/page.tsx  # Evidence locker (Standby briefing)
-│   │   │   ├── board/page.tsx     # Investigation board (Standby briefing)
-│   │   │   ├── teams/page.tsx     # Squads & units (Standby briefing)
+│   │   │   │       ├── page.tsx   # Phase 07: Active investigation operative workspace
+│   │   │   │       ├── evidence/  # Phase 08: Evidence vault & forensic dossier
+│   │   │   │       ├── puzzles/   # Phase 10: Interactive challenge room & cipher console
+│   │   │   │       └── board/     # Phase 11: Interactive crime board, timeline & theories
+│   │   │   ├── board/page.tsx     # Phase 11: Direct crime board router / session selector
+│   │   │   ├── teams/page.tsx     # Phase 09: Squads, units & invitation management
 │   │   │   └── achievements/page.tsx # Commendation registry (Standby briefing)
 │   │   └── api/
 │   │       ├── health/
@@ -134,6 +136,11 @@ mystery-network/
 │   │   │   ├── validators/     # Pluggable challenge validators (Caesar, Substitution, Vigenere, Logic, etc.)
 │   │   │   ├── guards/         # PuzzleGuard access validation & IDOR defense
 │   │   │   └── services/       # PuzzleService business logic & concurrency-safe transactions
+│   │   ├── investigation-board/# Phase 11: Interactive corkboard, evidence relationships, timelines & theories
+│   │   │   ├── types/          # Domain DTOs (SafeBoardDto, SafeBoardNodeDto, SafeTimelineEventDto, SafeTheoryDto)
+│   │   │   ├── validation/     # Zod schemas for nodes, connections, timeline events, and theories
+│   │   │   ├── guards/         # BoardGuard access verification, squad checks, and clue declassification
+│   │   │   └── services/       # Board, Node, Connection, Timeline, and Theory domain services
 │   │   ├── submissions/        # Phase 12: Accusations, theory verification, scoring
 │   │   ├── progression/        # Phase 12: XP calculations, detective badges, leaderboards
 │   │   ├── notifications/      # Future: In-app alerts, Telegram bot event dispatches
