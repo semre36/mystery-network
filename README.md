@@ -78,6 +78,7 @@ Full architectural specifications, security rules, and roadmaps are located in t
 - [Telegram Bot Architecture & Guide](./docs/TELEGRAM_BOT.md)
 - [Telegram Mini App Authentication & Sessions](./docs/TELEGRAM_AUTHENTICATION.md)
 - [Player Interface & Investigator Dossier](./docs/PLAYER_INTERFACE.md)
+- [Case Management & Discovery System](./docs/CASE_MANAGEMENT.md)
 - [Development Guidelines](./docs/DEVELOPMENT_GUIDELINES.md)
 - [Security Standards](./docs/SECURITY_STANDARDS.md)
 - [Project Structure & Directory Map](./docs/PROJECT_STRUCTURE.md)
@@ -92,7 +93,9 @@ Full architectural specifications, security rules, and roadmaps are located in t
 - **Phase 03: Telegram Bot Integration** — Completed (Bot, Commands, Webhook Route & Tests Verified).
 - **Phase 04: Telegram Mini App Authentication** — Completed (HMAC-SHA256 InitData Verification, AuthSession Management, Transactional Provisioning, HTTP-Only Cookies).
 - **Phase 05: Player Interface & Investigator Dossier** — Completed (Central Intelligence Console, Responsive AppShell, Dossier Management, Progression Tracking, Real Metrics).
+- **Phase 06: Case Management & Discovery System** — Completed (Case Archive, Classified Dossier Briefing, Campaign Directory, Threat Classification, Public API Redaction).
 - Health Endpoint: `GET /api/health`
 - Telegram Webhook: `POST /api/telegram/webhook`
 - Auth Endpoints: `POST /api/auth/telegram`, `GET /api/auth/session`, `POST /api/auth/logout`
 - Player Endpoints: `GET /api/player/me`, `PATCH /api/player/profile`
+- Case & Campaign Endpoints: `GET /api/cases`, `GET /api/cases/[caseId]`, `GET /api/campaigns`, `GET /api/campaigns/[slug]`

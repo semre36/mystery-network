@@ -7,6 +7,7 @@ import {
   Shield,
   LayoutDashboard,
   FolderSearch,
+  FolderGit2,
   FileKey,
   Network,
   Users2,
@@ -39,8 +40,11 @@ const NAV_ITEMS: readonly NavItem[] = [
     name: "Cases",
     href: "/cases",
     icon: FolderSearch,
-    badge: "Phase 06",
-    isComingSoon: true,
+  },
+  {
+    name: "Campaigns",
+    href: "/campaigns",
+    icon: FolderGit2,
   },
   {
     name: "Evidence",
@@ -114,7 +118,9 @@ export function AppSidebar({ dossier }: AppSidebarProps) {
         </div>
 
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive =
+            pathname === item.href ||
+            (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
           const Icon = item.icon;
 
           return (

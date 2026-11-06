@@ -21,7 +21,14 @@ mystery-network/
 │   │   │   ├── layout.tsx      # AppShell wrapper & server auth guard verification
 │   │   │   ├── dashboard/page.tsx # Central intelligence command center
 │   │   │   ├── profile/page.tsx   # Dossier & clearance configuration
-│   │   │   ├── cases/page.tsx     # Case registry (Standby briefing)
+│   │   │   ├── cases/
+│   │   │   │   ├── page.tsx       # Phase 06: Classified case directory with search/filters
+│   │   │   │   └── [caseId]/
+│   │   │   │       └── page.tsx   # Phase 06: Classified case detail & briefing dossier
+│   │   │   ├── campaigns/
+│   │   │   │   ├── page.tsx       # Phase 06: Classified campaigns directory
+│   │   │   │   └── [slug]/
+│   │   │   │       └── page.tsx   # Phase 06: Campaign overview & connected cases
 │   │   │   ├── evidence/page.tsx  # Evidence locker (Standby briefing)
 │   │   │   ├── board/page.tsx     # Investigation board (Standby briefing)
 │   │   │   ├── teams/page.tsx     # Squads & units (Standby briefing)
@@ -41,6 +48,14 @@ mystery-network/
 │   │       │   │   └── route.ts # Player dossier & stats endpoint (GET /api/player/me)
 │   │       │   └── profile/
 │   │       │       └── route.ts # Profile update endpoint (PATCH /api/player/profile)
+│   │       ├── cases/
+│   │       │   ├── route.ts    # Phase 06: Cases catalog & query endpoint (GET /api/cases)
+│   │       │   └── [caseId]/
+│   │       │       └── route.ts # Phase 06: Case detail endpoint (GET /api/cases/[caseId])
+│   │       ├── campaigns/
+│   │       │   ├── route.ts    # Phase 06: Campaigns catalog endpoint (GET /api/campaigns)
+│   │       │   └── [slug]/
+│   │       │       └── route.ts # Phase 06: Campaign detail endpoint (GET /api/campaigns/[slug])
 │   │       └── telegram/
 │   │           └── webhook/
 │   │               └── route.ts # Secure Telegram Bot API Webhook (POST /api/telegram/webhook)

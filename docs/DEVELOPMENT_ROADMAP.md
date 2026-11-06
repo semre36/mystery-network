@@ -13,7 +13,7 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 | **03** | **Telegram Bot Integration**       | **Completed (Bot Implementation & Webhook Architecture Ready, Live Webhook Setup Ready for Fresh Token)** | Telegram Bot API setup, webhook lifecycle, bot commands, onboarding links.                                      |
 | **04** | **Telegram Authentication**        |                                               **Completed**                                               | HMAC-SHA256 initData cryptographic verification, session issuance, secure auth tokens.                          |
 | **05** | **Player Interface**               |                                               **Completed**                                               | Investigator dossier, profile setup, preferences, active case status view.                                      |
-| **06** | Case Management                    |                                                  Pending                                                  | Case catalog, difficulty ratings, acts, episodic releases, immutable case definitions.                          |
+| **06** | **Case Management**                |                                               **Completed**                                               | Case catalog, difficulty ratings, acts, episodic releases, immutable case definitions.                          |
 | **07** | Investigation Engine               |                                                  Pending                                                  | Session state machine, investigation timelines, stage transitions, progress tracking.                           |
 | **08** | Evidence System                    |                                                  Pending                                                  | Asymmetric clue distribution, clue cards, forensic document viewer, IDOR protection.                            |
 | **09** | Team Collaboration                 |                                                  Pending                                                  | Squad formation, invite codes, squad detective rooms, safe clue sharing channels.                               |
@@ -137,3 +137,23 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 - [x] Comprehensive automated test suite implemented (`tests/player.test.ts` — 23 tests, 101 total tests passing).
 - [x] Complete documentation authored (`docs/PLAYER_INTERFACE.md`).
 - [x] Zero regressions across Phase 01–04 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.
+
+---
+
+## Phase 06: Case Management & Discovery System — Acceptance Checklist
+
+- [x] Public DTO isolation established (`SafeCaseSummaryDto`, `SafeCaseDetailDto`, `SafeCampaignSummaryDto`, `SafeCampaignDetailDto`, `SafeChapterDto`, `SafeCharacterDto`).
+- [x] Absolute OPSEC & zero content leakage: clues, puzzles, cryptographic solution hashes, internal scoring rules, and hidden notes are strictly redacted from all public discovery endpoints.
+- [x] Strict publication boundary enforcement: only `ContentStatus.PUBLISHED` content is queryable; draft/archived cases and campaigns return HTTP 404 (`CASE_NOT_FOUND` / `CAMPAIGN_NOT_FOUND`).
+- [x] Case querying schema implemented with Zod (`CaseQuerySchema`) supporting keyword search, threat tier filters (`EASY`, `MEDIUM`, `HARD`, `EXPERT`), campaign filters, multiple sort orders, and bounded pagination.
+- [x] Core case service implemented (`CaseService`) with `getPublishedCases`, `getCaseByIdOrCode`, `getFeaturedCase`, `getPublishedCampaigns`, and `getCampaignBySlug`.
+- [x] Dual identifier lookup supported for cases: valid UUID or human-readable `caseCode` (e.g. `CASE-001-MIDNIGHT-PROTOCOL`).
+- [x] Public character metadata whitelisting: extracts safe attributes (`role`, `clearance`, `location`) while stripping internal secrets.
+- [x] REST API endpoints implemented: `GET /api/cases`, `GET /api/cases/[caseId]`, `GET /api/campaigns`, `GET /api/campaigns/[slug]`.
+- [x] Case Operations directory implemented at `/cases` with priority hero banner (`FeaturedCaseBanner`), interactive search & filter bar (`CaseSearchFilters`), dossier catalog grid (`CaseCard`), and pagination (`CasePagination`).
+- [x] Classified Case Briefing view implemented at `/cases/[caseId]` with narrative synopsis, threat specifications, persons of interest roster, and locked/unlocked act breakdown.
+- [x] Campaigns directory implemented at `/campaigns` (`CampaignCard`) and campaign detail view at `/campaigns/[slug]`.
+- [x] Application sidebar navigation updated: `/cases` activated, `/campaigns` directory added with persistent route highlight.
+- [x] Comprehensive automated test suite implemented (`tests/cases.test.ts` — 28 tests, 129 total tests passing across all suites).
+- [x] Complete architecture and security documentation authored (`docs/CASE_MANAGEMENT.md`).
+- [x] Zero regressions across Phase 01–05 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.

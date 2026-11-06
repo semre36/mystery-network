@@ -202,6 +202,40 @@ async function main() {
     },
   });
 
+  // Benchmark Case Characters
+  const existingCharacters = await prisma.caseCharacter.findMany({
+    where: { caseId: benchmarkCase.id },
+  });
+
+  if (existingCharacters.length === 0) {
+    await prisma.caseCharacter.createMany({
+      data: [
+        {
+          caseId: benchmarkCase.id,
+          name: "Dr. Elena Vance",
+          description:
+            "Senior telecommunications specialist stationed at Zurich Relay 7. Discovered the initial anomalous carrier signal before transmission dropped.",
+          metadata: {
+            role: "Chief Systems Architect",
+            clearance: "TOP SECRET",
+            location: "Zurich Relay Station",
+          },
+        },
+        {
+          caseId: benchmarkCase.id,
+          name: "Marcus Thorne",
+          description:
+            "Logistics coordinator on duty during the 03:00 UTC blackout. Access card was recorded at terminal TERM-ZR-07 ten minutes prior to override.",
+          metadata: {
+            role: "Nightshift Operations Controller",
+            clearance: "RESTRICTED",
+            location: "Zurich Sector B",
+          },
+        },
+      ],
+    });
+  }
+
   // Benchmark Clue
   const existingClues = await prisma.clue.findMany({
     where: { caseId: benchmarkCase.id, title: "Zurich Server Terminal Log" },
