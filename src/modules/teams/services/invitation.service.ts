@@ -195,6 +195,11 @@ export class InvitationService {
     const tokenHash = this.hashToken(trimmedToken);
 
     return await prisma.$transaction(async (tx) => {
+      // Concurrency lock: Advisory lock on token hash to strictly serialize concurrent acceptances
+      if (typeof tx.$executeRaw === "function") {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${tokenHash}))`;
+      }
+
       const invitation = await tx.teamInvitation.findUnique({
         where: { invitationCode: tokenHash },
         include: {
@@ -212,6 +217,10 @@ export class InvitationService {
           410,
           "INVITATION_REVOKED"
         );
+      }
+
+      if (invitation.status === InvitationStatus.DECLINED) {
+        throw new AppError("This invitation has been declined", 410, "INVITATION_DECLINED");
       }
 
       if (invitation.status === InvitationStatus.ACCEPTED) {
@@ -253,6 +262,27 @@ export class InvitationService {
         );
       }
 
+      // Atomic conditional update ensuring single-use acceptance race safety
+      const updateResult = await tx.teamInvitation.updateMany({
+        where: {
+          id: invitation.id,
+          status: InvitationStatus.PENDING,
+          expiresAt: { gt: new Date() },
+        },
+        data: {
+          status: InvitationStatus.ACCEPTED,
+          acceptedAt: new Date(),
+        },
+      });
+
+      if (updateResult.count === 0) {
+        throw new AppError(
+          "This invitation is no longer valid or has already been accepted",
+          410,
+          "INVITATION_ALREADY_USED"
+        );
+      }
+
       // Upsert membership (reactivate if previously left or create new)
       if (existingMembership) {
         await tx.teamMembership.update({
@@ -275,15 +305,6 @@ export class InvitationService {
         });
       }
 
-      // Mark invitation as ACCEPTED
-      await tx.teamInvitation.update({
-        where: { id: invitation.id },
-        data: {
-          status: InvitationStatus.ACCEPTED,
-          acceptedAt: new Date(),
-        },
-      });
-
       logger.info("Squad invitation accepted successfully", {
         teamId: invitation.teamId,
         playerId: callerPlayerId,
@@ -299,6 +320,8 @@ export class InvitationService {
 
   /**
    * Declines a squad invitation.
+   * For direct personal invitations, updates status to DECLINED.
+   * For open links, safely acknowledges without invalidating the token for others.
    */
   public static async declineInvitation(
     userId: string,
@@ -317,24 +340,45 @@ export class InvitationService {
       where: { invitationCode: tokenHash },
     });
 
-    if (!invitation || invitation.status !== InvitationStatus.PENDING) {
-      throw new AppError("Invitation not found or no longer active", 404, "INVITATION_NOT_FOUND");
+    if (!invitation) {
+      throw new AppError("Invitation not found", 404, "INVITATION_NOT_FOUND");
+    }
+
+    if (invitation.status === InvitationStatus.REVOKED) {
+      throw new AppError("This invitation has been revoked", 410, "INVITATION_REVOKED");
+    }
+
+    if (invitation.status === InvitationStatus.ACCEPTED) {
+      throw new AppError(
+        "This invitation has already been accepted",
+        410,
+        "INVITATION_ALREADY_USED"
+      );
+    }
+
+    if (invitation.expiresAt <= new Date() || invitation.status === InvitationStatus.EXPIRED) {
+      throw new AppError("This invitation has expired", 410, "INVITATION_EXPIRED");
     }
 
     if (invitation.invitedPlayerId && invitation.invitedPlayerId !== callerPlayerId) {
       throw new AppError("Unauthorized action on this invitation", 403, "FORBIDDEN");
     }
 
-    await prisma.teamInvitation.update({
-      where: { id: invitation.id },
-      data: {
-        status: InvitationStatus.DECLINED,
-      },
-    });
+    // Only direct targeted invitations transition to DECLINED in the database.
+    // Open link invitations remain active for other operatives.
+    if (invitation.invitedPlayerId === callerPlayerId) {
+      await prisma.teamInvitation.update({
+        where: { id: invitation.id },
+        data: {
+          status: InvitationStatus.DECLINED,
+        },
+      });
+    }
 
     logger.info("Squad invitation declined", {
       invitationId: invitation.id,
       playerId: callerPlayerId,
+      isDirect: invitation.invitedPlayerId === callerPlayerId,
     });
 
     return { message: "Squad invitation declined." };
@@ -343,6 +387,7 @@ export class InvitationService {
   /**
    * Revokes an active invitation.
    * Authorized strictly for the LEAD_INVESTIGATOR.
+   * Thread-safe against concurrent acceptance.
    */
   public static async revokeInvitation(
     userId: string,
@@ -352,41 +397,48 @@ export class InvitationService {
     const callerPlayerId = await TeamGuard.getPlayerProfileId(userId);
     await TeamGuard.requireTeamLeader(teamId, callerPlayerId);
 
-    const invitation = await prisma.teamInvitation.findUnique({
-      where: { id: invitationId },
+    return await prisma.$transaction(async (tx) => {
+      const invitation = await tx.teamInvitation.findUnique({
+        where: { id: invitationId },
+      });
+
+      if (!invitation || invitation.teamId !== teamId) {
+        throw new AppError("Invitation not found in this squad", 404, "INVITATION_NOT_FOUND");
+      }
+
+      // Concurrency lock scoped to invitationCode
+      if (typeof tx.$executeRaw === "function") {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${invitation.invitationCode}))`;
+      }
+
+      if (invitation.status === InvitationStatus.ACCEPTED) {
+        throw new AppError(
+          "Cannot revoke an invitation that has already been accepted",
+          400,
+          "INVITATION_ALREADY_ACCEPTED"
+        );
+      }
+
+      if (invitation.status === InvitationStatus.REVOKED) {
+        throw new AppError("Invitation is already revoked", 400, "INVITATION_ALREADY_REVOKED");
+      }
+
+      await tx.teamInvitation.update({
+        where: { id: invitationId },
+        data: {
+          status: InvitationStatus.REVOKED,
+          revokedAt: new Date(),
+        },
+      });
+
+      logger.info("Squad invitation revoked by leader", {
+        invitationId,
+        teamId,
+        revokedBy: callerPlayerId,
+      });
+
+      return { message: "Invitation revoked successfully." };
     });
-
-    if (!invitation || invitation.teamId !== teamId) {
-      throw new AppError("Invitation not found in this squad", 404, "INVITATION_NOT_FOUND");
-    }
-
-    if (invitation.status === InvitationStatus.ACCEPTED) {
-      throw new AppError(
-        "Cannot revoke an invitation that has already been accepted",
-        400,
-        "INVITATION_ALREADY_ACCEPTED"
-      );
-    }
-
-    if (invitation.status === InvitationStatus.REVOKED) {
-      throw new AppError("Invitation is already revoked", 400, "INVITATION_ALREADY_REVOKED");
-    }
-
-    await prisma.teamInvitation.update({
-      where: { id: invitationId },
-      data: {
-        status: InvitationStatus.REVOKED,
-        revokedAt: new Date(),
-      },
-    });
-
-    logger.info("Squad invitation revoked by leader", {
-      invitationId,
-      teamId,
-      revokedBy: callerPlayerId,
-    });
-
-    return { message: "Invitation revoked successfully." };
   }
 
   /**

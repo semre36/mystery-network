@@ -7,6 +7,7 @@ import {
   MembershipStatus,
   InvitationStatus,
   InvestigationStatus,
+  ParticipantStatus,
 } from "@prisma/client";
 import {
   TeamSummaryDto,
@@ -48,43 +49,45 @@ export class TeamService {
     const description = input.description ? input.description.trim() : null;
     const avatarUrl = input.avatarUrl ? input.avatarUrl.trim() : null;
 
-    // Retry loop for team code collisions (statistically negligible)
-    let teamCode = this.generateTeamCode();
-    let attempts = 0;
-    while (attempts < 5) {
-      const existing = await prisma.team.findUnique({
-        where: { inviteCode: teamCode },
-      });
-      if (!existing) break;
-      teamCode = this.generateTeamCode();
-      attempts++;
+    // Retry loop for team code collisions (safely catching unique constraint races)
+    let team: any = null;
+    let createAttempts = 0;
+    while (createAttempts < 5) {
+      try {
+        const teamCode = this.generateTeamCode();
+        team = await prisma.$transaction(async (tx) => {
+          const newTeam = await tx.team.create({
+            data: {
+              name,
+              description,
+              avatarUrl,
+              inviteCode: teamCode,
+              ownerId: playerId,
+              status: TeamStatus.ACTIVE,
+            },
+          });
+
+          await tx.teamMembership.create({
+            data: {
+              teamId: newTeam.id,
+              playerId,
+              role: TeamRole.LEAD_INVESTIGATOR,
+              status: MembershipStatus.ACTIVE,
+              joinedAt: new Date(),
+            },
+          });
+
+          return newTeam;
+        });
+        break;
+      } catch (err: any) {
+        if (err.code === "P2002" && createAttempts < 4) {
+          createAttempts++;
+          continue;
+        }
+        throw err;
+      }
     }
-
-    // Atomic transaction: create Team and initial LEAD_INVESTIGATOR membership
-    const team = await prisma.$transaction(async (tx) => {
-      const newTeam = await tx.team.create({
-        data: {
-          name,
-          description,
-          avatarUrl,
-          inviteCode: teamCode,
-          ownerId: playerId,
-          status: TeamStatus.ACTIVE,
-        },
-      });
-
-      await tx.teamMembership.create({
-        data: {
-          teamId: newTeam.id,
-          playerId,
-          role: TeamRole.LEAD_INVESTIGATOR,
-          status: MembershipStatus.ACTIVE,
-          joinedAt: new Date(),
-        },
-      });
-
-      return newTeam;
-    });
 
     logger.info("Operative squad created successfully", {
       teamId: team.id,
@@ -396,6 +399,27 @@ export class TeamService {
         data: { status: MembershipStatus.LEFT },
       });
 
+      // Revoke active participation in all ongoing squad investigations
+      await tx.investigationParticipant.updateMany({
+        where: {
+          playerId,
+          status: ParticipantStatus.ACTIVE,
+          investigation: {
+            teamId,
+            status: {
+              in: [
+                InvestigationStatus.IN_PROGRESS,
+                InvestigationStatus.PAUSED,
+                InvestigationStatus.NOT_STARTED,
+              ],
+            },
+          },
+        },
+        data: {
+          status: ParticipantStatus.LEFT,
+        },
+      });
+
       const remainingMembers = activeMembers.filter((m) => m.playerId !== playerId);
       let disbanded = false;
 
@@ -405,6 +429,25 @@ export class TeamService {
           where: { id: teamId },
           data: { status: TeamStatus.DISBANDED },
         });
+
+        // Conclude and abandon any ongoing investigations for the disbanded unit
+        await tx.investigation.updateMany({
+          where: {
+            teamId,
+            status: {
+              in: [
+                InvestigationStatus.IN_PROGRESS,
+                InvestigationStatus.PAUSED,
+                InvestigationStatus.NOT_STARTED,
+              ],
+            },
+          },
+          data: {
+            status: InvestigationStatus.ABANDONED,
+            completedAt: new Date(),
+          },
+        });
+
         disbanded = true;
       }
 
@@ -426,6 +469,7 @@ export class TeamService {
   /**
    * Removes a member from the squad.
    * Authorized strictly for the LEAD_INVESTIGATOR.
+   * Atomically revokes membership and ongoing investigation participation while preserving historical records.
    */
   public static async removeTeamMember(
     userId: string,
@@ -456,10 +500,34 @@ export class TeamService {
       throw new AppError("Target operative is not an active squad member", 404, "MEMBER_NOT_FOUND");
     }
 
-    // Mark as REMOVED (preserves historical contribution records)
-    await prisma.teamMembership.update({
-      where: { id: targetMembership.id },
-      data: { status: MembershipStatus.REMOVED },
+    // Atomic transaction: Revoke squad membership and active participation in ongoing investigations
+    await prisma.$transaction(async (tx) => {
+      // 1. Mark membership as REMOVED (preserves historical contribution records)
+      await tx.teamMembership.update({
+        where: { id: targetMembership.id },
+        data: { status: MembershipStatus.REMOVED },
+      });
+
+      // 2. Revoke active participation in all ongoing squad investigations
+      await tx.investigationParticipant.updateMany({
+        where: {
+          playerId: targetPlayerId,
+          status: ParticipantStatus.ACTIVE,
+          investigation: {
+            teamId,
+            status: {
+              in: [
+                InvestigationStatus.IN_PROGRESS,
+                InvestigationStatus.PAUSED,
+                InvestigationStatus.NOT_STARTED,
+              ],
+            },
+          },
+        },
+        data: {
+          status: ParticipantStatus.LEFT,
+        },
+      });
     });
 
     logger.info("Operative removed from squad by leader", {

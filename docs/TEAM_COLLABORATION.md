@@ -122,14 +122,68 @@ All endpoints enforce strict server-side session authentication via `requireAuth
    - `TeamGuard.requireTeamMember` throws uniform HTTP 404 for nonexistent squads or squads where the caller is not an active member. Non-members cannot determine if a private squad ID exists.
 
 2. **Replay & Concurrency Prevention**:
-   - Invitation acceptance runs in interactive serializable transactions.
-   - Tokens can only transition from `PENDING` to `ACCEPTED` once.
-   - Expired tokens or revoked tokens are rejected immediately.
+   - Invitation acceptance runs in interactive serializable transactions protected by PostgreSQL advisory transaction locks (`pg_advisory_xact_lock(hashtext(tokenHash))`).
+   - Tokens transition from `PENDING` to `ACCEPTED` using atomic conditional updates (`updateMany` checking `status: PENDING, expiresAt > now()`), preventing race conditions.
+   - Already used, expired, declined, or revoked tokens return HTTP 410 (Gone).
 
-3. **Asymmetric Evidence Isolation**:
-   - In cooperative squad investigations, `ASYMMETRIC_EXCLUSIVE` clues already assigned to an operative are **never** reassigned, duplicated, or leaked to other team members joining late.
-   - Private field notes (`EvidenceNote`) remain strictly private to the authoring operative.
+3. **Asymmetric Evidence Isolation & Provisioning Locks**:
+   - In cooperative squad investigations, `EvidenceService.provisionInvestigationClues` acquires a transactional advisory lock (`pg_advisory_xact_lock(hashtext(investigationId))`) to strictly serialize concurrent operative joins and chapter clue provisioning.
+   - `ASYMMETRIC_EXCLUSIVE` clues assigned to an operative are **never** reassigned, duplicated, or leaked to other team members joining concurrently or later.
+   - Private field notes (`EvidenceNote`) are strictly scoped by `(investigationId, clueId, playerId)` and remain confidential to the authoring operative.
 
 4. **Sanitized Public Previews**:
    - The preview route (`/api/invitations/[token]`) exposes only high-level unit information: name, description, insignia, leader codename, and member count.
    - Token hashes, internal player IDs, and case progress remain confidential.
+
+---
+
+## 5. MEMBERSHIP LIFECYCLE & INVESTIGATION ACCESS POLICY
+
+### Operative Removal Policy
+
+- When a squad leader removes a member (`removeTeamMember`):
+  1. The member's squad membership status is set to `MembershipStatus.REMOVED`.
+  2. In an atomic transaction, the operative's active participant records (`InvestigationParticipant`) for all **ongoing** squad investigations (`NOT_STARTED`, `IN_PROGRESS`, `PAUSED`) are transitioned to `ParticipantStatus.LEFT`.
+  3. The removed operative is immediately blocked from the squad dossier, active investigation workspaces, evidence queries, and notes creation (uniform HTTP 404).
+  4. Historical investigations (`SOLVED`, `FAILED`, `ABANDONED`) remain intact: historical participant records and clue assignments are preserved for retrospective auditability and dossier records.
+
+### Voluntary Departure Policy
+
+- When an operative voluntarily departs (`leaveTeam`):
+  1. The leader cannot depart without transferring command if other squad members exist.
+  2. The member's squad membership status is set to `MembershipStatus.LEFT`.
+  3. Active participation in ongoing squad investigations (`NOT_STARTED`, `IN_PROGRESS`, `PAUSED`) is atomically transitioned to `ParticipantStatus.LEFT`.
+  4. If the departed member was the last operative in the squad, the unit triggers the **Automatic Disband Protocol**.
+
+### Automatic Disbanding Protocol
+
+- When a squad becomes empty:
+  1. Squad status transitions to `TeamStatus.DISBANDED`.
+  2. All ongoing investigations (`NOT_STARTED`, `IN_PROGRESS`, `PAUSED`) are atomically transitioned to `InvestigationStatus.ABANDONED` with `completedAt = new Date()`.
+  3. Disbanded squads are permanently barred from starting new investigations (`TEAM_NOT_FOUND` / 404), generating invitation tokens, or accepting new operatives (`TEAM_DISBANDED` / 400).
+
+### Historical Record Preservation
+
+- Completed investigations (`SOLVED`, `FAILED`, `ABANDONED`) are immutable historical records.
+- Past participants retain retrospective read-only access to view the completed investigation dossier of cases they helped solve, even if their squad membership later ends.
+- Previously created field notes (`EvidenceNote`) and evidence transmissions (`EvidenceShare`) remain preserved in the audit log.
+
+### Leadership Succession & Transfer Rules
+
+- Squad leadership is atomic: exactly one active member holds the `LEAD_INVESTIGATOR` role.
+- `transferTeamLeadership` demotes the current leader to `DETECTIVE`, promotes the designated active operative to `LEAD_INVESTIGATOR`, and updates `team.ownerId` within a single database transaction.
+- Non-members or removed operatives cannot be promoted.
+
+### Invitation Concurrency & Rejection Protocols
+
+- **Atomic Acceptance**: Serialized via advisory transaction lock and conditional update. Simultaneous duplicate requests on a single-use token result in exactly one acceptance; the second request receives HTTP 410 `INVITATION_ALREADY_USED`.
+- **Declined Invitations**: Accepting a previously declined invitation returns HTTP 410 `INVITATION_DECLINED`.
+- **Open Link vs Personal Invites**: When an operative declines an open link invitation (`invitedPlayerId === null`), the operation acknowledges locally without mutating the shared token, preserving the link for other operatives. Targeted personal invitations (`invitedPlayerId === callerId`) transition the database status to `DECLINED`.
+- **Revocation Protection**: Revoking an invitation that has already been accepted is rejected with HTTP 400 `INVITATION_ALREADY_ACCEPTED`.
+
+### Cooperative Participant Enrollment Policy
+
+- When starting an investigation, the Lead Investigator can enroll all active squad members or select a tactical subset.
+- Any active squad member not initially enrolled can deploy into the investigation at any time via `joinTeamInvestigation`.
+- Late-joining operatives receive eligible `ALL_PLAYERS` clues for current unlocked chapters. `ASYMMETRIC_EXCLUSIVE` clues remain assigned to their original recipients.
+- Removed or non-squad members cannot join active squad investigations (HTTP 403 / 404). Concluded investigations reject new participant enrollments (HTTP 400 `INVESTIGATION_CONCLUDED`).

@@ -224,6 +224,8 @@ describe("Team Collaboration & Multiplayer Investigation (Phase 09)", () => {
       });
 
       const updateTeamSpy = vi.fn().mockResolvedValue({});
+      const updateParticipantsSpy = vi.fn().mockResolvedValue({ count: 1 });
+      const updateInvestigationsSpy = vi.fn().mockResolvedValue({ count: 1 });
       vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => {
         const tx = {
           teamMembership: {
@@ -233,6 +235,12 @@ describe("Team Collaboration & Multiplayer Investigation (Phase 09)", () => {
                 { playerId: MOCK_LEADER_PROFILE_ID, role: TeamRole.LEAD_INVESTIGATOR },
               ]),
             update: vi.fn().mockResolvedValue({}),
+          },
+          investigationParticipant: {
+            updateMany: updateParticipantsSpy,
+          },
+          investigation: {
+            updateMany: updateInvestigationsSpy,
           },
           team: {
             update: updateTeamSpy,
@@ -246,6 +254,22 @@ describe("Team Collaboration & Multiplayer Investigation (Phase 09)", () => {
       expect(updateTeamSpy).toHaveBeenCalledWith({
         where: { id: MOCK_TEAM_ID },
         data: { status: TeamStatus.DISBANDED },
+      });
+      expect(updateInvestigationsSpy).toHaveBeenCalledWith({
+        where: {
+          teamId: MOCK_TEAM_ID,
+          status: {
+            in: [
+              InvestigationStatus.IN_PROGRESS,
+              InvestigationStatus.PAUSED,
+              InvestigationStatus.NOT_STARTED,
+            ],
+          },
+        },
+        data: {
+          status: InvestigationStatus.ABANDONED,
+          completedAt: expect.any(Date),
+        },
       });
     });
 
@@ -267,7 +291,19 @@ describe("Team Collaboration & Multiplayer Investigation (Phase 09)", () => {
         status: MembershipStatus.ACTIVE,
       } as any);
 
-      const updateSpy = vi.spyOn(prisma.teamMembership, "update").mockResolvedValue({} as any);
+      const updateMembershipSpy = vi.fn().mockResolvedValue({});
+      const updateParticipantsSpy = vi.fn().mockResolvedValue({ count: 1 });
+      vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => {
+        const tx = {
+          teamMembership: {
+            update: updateMembershipSpy,
+          },
+          investigationParticipant: {
+            updateMany: updateParticipantsSpy,
+          },
+        };
+        return await callback(tx);
+      });
 
       const result = await TeamService.removeTeamMember(
         MOCK_LEADER_USER_ID,
@@ -276,10 +312,19 @@ describe("Team Collaboration & Multiplayer Investigation (Phase 09)", () => {
       );
 
       expect(result.message).toContain("removed from squad roster");
-      expect(updateSpy).toHaveBeenCalledWith({
+      expect(updateMembershipSpy).toHaveBeenCalledWith({
         where: { id: "mem-2" },
         data: { status: MembershipStatus.REMOVED },
       });
+      expect(updateParticipantsSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            playerId: MOCK_MEMBER_PROFILE_ID,
+            status: ParticipantStatus.ACTIVE,
+          }),
+          data: { status: ParticipantStatus.LEFT },
+        })
+      );
     });
 
     it("transfers leadership atomically and updates team ownership", async () => {
@@ -427,11 +472,12 @@ describe("Team Collaboration & Multiplayer Investigation (Phase 09)", () => {
         id: MOCK_MEMBER_PROFILE_ID,
       } as any);
 
-      const updateInvitationSpy = vi.fn().mockResolvedValue({});
+      const updateManyInvitationSpy = vi.fn().mockResolvedValue({ count: 1 });
       const createMembershipSpy = vi.fn().mockResolvedValue({});
 
       vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => {
         const tx = {
+          $executeRaw: vi.fn().mockResolvedValue(1),
           teamInvitation: {
             findUnique: vi.fn().mockResolvedValue({
               id: MOCK_INVITATION_ID,
@@ -442,7 +488,7 @@ describe("Team Collaboration & Multiplayer Investigation (Phase 09)", () => {
               invitedPlayerId: null,
               team: { id: MOCK_TEAM_ID, name: "Vanguard Unit", status: TeamStatus.ACTIVE },
             }),
-            update: updateInvitationSpy,
+            updateMany: updateManyInvitationSpy,
           },
           teamMembership: {
             findUnique: vi.fn().mockResolvedValue(null), // Not yet a member
@@ -465,9 +511,12 @@ describe("Team Collaboration & Multiplayer Investigation (Phase 09)", () => {
           }),
         })
       );
-      expect(updateInvitationSpy).toHaveBeenCalledWith(
+      expect(updateManyInvitationSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: MOCK_INVITATION_ID },
+          where: expect.objectContaining({
+            id: MOCK_INVITATION_ID,
+            status: InvitationStatus.PENDING,
+          }),
           data: expect.objectContaining({
             status: InvitationStatus.ACCEPTED,
           }),
@@ -596,6 +645,7 @@ describe("Team Collaboration & Multiplayer Investigation (Phase 09)", () => {
         id: MOCK_INVESTIGATION_ID,
         caseId: MOCK_CASE_ID,
         teamId: MOCK_TEAM_ID,
+        team: { id: MOCK_TEAM_ID, status: TeamStatus.ACTIVE },
         playMode: PlayMode.COOPERATIVE,
         status: InvestigationStatus.IN_PROGRESS,
         participants: [{ playerId: MOCK_LEADER_PROFILE_ID, status: ParticipantStatus.ACTIVE }],
@@ -662,6 +712,7 @@ describe("Team Collaboration & Multiplayer Investigation (Phase 09)", () => {
         id: MOCK_INVESTIGATION_ID,
         caseId: MOCK_CASE_ID,
         teamId: MOCK_TEAM_ID,
+        team: { id: MOCK_TEAM_ID, status: TeamStatus.ACTIVE },
         playMode: PlayMode.COOPERATIVE,
         status: InvestigationStatus.IN_PROGRESS,
         participants: [],
@@ -752,6 +803,425 @@ describe("Team Collaboration & Multiplayer Investigation (Phase 09)", () => {
       expect(res.status).toBe(200);
       expect(json.ok).toBe(true);
       expect(json.data.id).toBe(MOCK_INVESTIGATION_ID);
+    });
+  });
+
+  describe("Architectural Audit Verification (Phase 09 Audit)", () => {
+    it("Audit A: atomically transitions active investigation participants to LEFT when an operative is removed", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_LEADER_PROFILE_ID,
+      } as any);
+
+      vi.spyOn(TeamGuard, "requireTeamLeader").mockResolvedValue({
+        team: { id: MOCK_TEAM_ID, ownerId: MOCK_LEADER_PROFILE_ID, status: TeamStatus.ACTIVE },
+        membership: { id: "mem-lead", role: TeamRole.LEAD_INVESTIGATOR },
+        playerId: MOCK_LEADER_PROFILE_ID,
+      });
+
+      vi.spyOn(prisma.teamMembership, "findUnique").mockResolvedValue({
+        id: "mem-target",
+        teamId: MOCK_TEAM_ID,
+        playerId: MOCK_MEMBER_PROFILE_ID,
+        status: MembershipStatus.ACTIVE,
+      } as any);
+
+      const updateMembershipSpy = vi.fn().mockResolvedValue({});
+      const updateParticipantsSpy = vi.fn().mockResolvedValue({ count: 2 });
+
+      vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => {
+        const tx = {
+          teamMembership: { update: updateMembershipSpy },
+          investigationParticipant: { updateMany: updateParticipantsSpy },
+        };
+        return await callback(tx);
+      });
+
+      const res = await TeamService.removeTeamMember(
+        MOCK_LEADER_USER_ID,
+        MOCK_TEAM_ID,
+        MOCK_MEMBER_PROFILE_ID
+      );
+
+      expect(res.message).toContain("removed from squad roster");
+      expect(updateMembershipSpy).toHaveBeenCalledWith({
+        where: { id: "mem-target" },
+        data: { status: MembershipStatus.REMOVED },
+      });
+      expect(updateParticipantsSpy).toHaveBeenCalledWith({
+        where: {
+          playerId: MOCK_MEMBER_PROFILE_ID,
+          status: ParticipantStatus.ACTIVE,
+          investigation: {
+            teamId: MOCK_TEAM_ID,
+            status: {
+              in: [
+                InvestigationStatus.IN_PROGRESS,
+                InvestigationStatus.PAUSED,
+                InvestigationStatus.NOT_STARTED,
+              ],
+            },
+          },
+        },
+        data: {
+          status: ParticipantStatus.LEFT,
+        },
+      });
+    });
+
+    it("Audit A: rejects workspace access to departed or removed operative in active squad investigation", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_MEMBER_PROFILE_ID,
+      } as any);
+
+      vi.spyOn(InvestigationService as any, "fetchInvestigationWithDetails").mockResolvedValue({
+        id: MOCK_INVESTIGATION_ID,
+        teamId: MOCK_TEAM_ID,
+        status: InvestigationStatus.IN_PROGRESS,
+        participants: [{ playerId: MOCK_MEMBER_PROFILE_ID, status: ParticipantStatus.LEFT }],
+        case: {
+          id: MOCK_CASE_ID,
+          caseCode: "CASE-001",
+          title: "Midnight Protocol",
+          _count: { chapters: 3, characters: 2 },
+        },
+      });
+
+      // Member is no longer active in squad
+      vi.spyOn(prisma.teamMembership, "findUnique").mockResolvedValue({
+        id: "mem-removed",
+        teamId: MOCK_TEAM_ID,
+        playerId: MOCK_MEMBER_PROFILE_ID,
+        status: MembershipStatus.REMOVED,
+      } as any);
+
+      await expect(
+        InvestigationService.getInvestigationWorkspace(MOCK_MEMBER_USER_ID, MOCK_INVESTIGATION_ID)
+      ).rejects.toThrow(
+        "Access denied: You are not an active operative in this squad investigation"
+      );
+    });
+
+    it("Audit A: permits retrospective viewing of historical completed/solved investigations for past participants", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_MEMBER_PROFILE_ID,
+      } as any);
+
+      vi.spyOn(InvestigationService as any, "fetchInvestigationWithDetails").mockResolvedValue({
+        id: MOCK_INVESTIGATION_ID,
+        teamId: MOCK_TEAM_ID,
+        status: InvestigationStatus.SOLVED,
+        playMode: PlayMode.COOPERATIVE,
+        startedAt: new Date(),
+        completedAt: new Date(),
+        updatedAt: new Date(),
+        participants: [
+          {
+            playerId: MOCK_MEMBER_PROFILE_ID,
+            status: ParticipantStatus.ACTIVE,
+            joinedAt: new Date(),
+            player: { codename: "OPERATIVE-02", displayName: "Ghost", avatarUrl: null },
+          },
+        ],
+        progress: [],
+        case: {
+          id: MOCK_CASE_ID,
+          caseCode: "CASE-001",
+          title: "Midnight Protocol",
+          description: "Briefing",
+          difficulty: CaseDifficulty.MEDIUM,
+          estimatedDurationMinutes: 60,
+          minPlayers: 1,
+          maxPlayers: 4,
+          supportedPlayModes: [PlayMode.COOPERATIVE],
+          status: ContentStatus.PUBLISHED,
+          publishedAt: new Date(),
+          campaign: null,
+          chapters: [],
+          characters: [],
+          _count: { chapters: 2, characters: 1 },
+        },
+      });
+
+      // Operative is no longer an active team member
+      vi.spyOn(prisma.teamMembership, "findUnique").mockResolvedValue({
+        id: "mem-removed",
+        teamId: MOCK_TEAM_ID,
+        playerId: MOCK_MEMBER_PROFILE_ID,
+        status: MembershipStatus.LEFT,
+      } as any);
+
+      const workspace = await InvestigationService.getInvestigationWorkspace(
+        MOCK_MEMBER_USER_ID,
+        MOCK_INVESTIGATION_ID
+      );
+
+      expect(workspace.id).toBe(MOCK_INVESTIGATION_ID);
+      expect(workspace.status).toBe(InvestigationStatus.SOLVED);
+    });
+
+    it("Audit A & E: denies evidence access via verifyInvestigationParticipant to removed operatives in active squad investigations", async () => {
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValue({
+        id: MOCK_INVESTIGATION_ID,
+        teamId: MOCK_TEAM_ID,
+        status: InvestigationStatus.IN_PROGRESS,
+        case: { id: MOCK_CASE_ID, caseCode: "CASE-001", title: "Test" },
+        participants: [{ playerId: MOCK_MEMBER_PROFILE_ID, status: ParticipantStatus.ACTIVE }],
+        progress: [],
+      } as any);
+
+      // Caller has been REMOVED from the team
+      vi.spyOn(prisma.teamMembership, "findUnique").mockResolvedValue({
+        id: "mem-removed",
+        teamId: MOCK_TEAM_ID,
+        playerId: MOCK_MEMBER_PROFILE_ID,
+        status: MembershipStatus.REMOVED,
+      } as any);
+
+      await expect(
+        EvidenceService.verifyInvestigationParticipant(
+          MOCK_INVESTIGATION_ID,
+          MOCK_MEMBER_PROFILE_ID
+        )
+      ).rejects.toThrow("Investigation session not found or restricted");
+    });
+
+    it("Audit C: rejects acceptance of DECLINED invitation with HTTP 410 INVITATION_DECLINED", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_MEMBER_PROFILE_ID,
+      } as any);
+
+      vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => {
+        const tx = {
+          $executeRaw: vi.fn().mockResolvedValue(1),
+          teamInvitation: {
+            findUnique: vi.fn().mockResolvedValue({
+              id: MOCK_INVITATION_ID,
+              teamId: MOCK_TEAM_ID,
+              status: InvitationStatus.DECLINED,
+              expiresAt: new Date(Date.now() + 86400000),
+              team: { id: MOCK_TEAM_ID, status: TeamStatus.ACTIVE },
+            }),
+          },
+        };
+        return await callback(tx);
+      });
+
+      await expect(
+        InvitationService.acceptInvitation(
+          MOCK_MEMBER_USER_ID,
+          "sometoken12345678901234567890123456789012"
+        )
+      ).rejects.toMatchObject({
+        statusCode: 410,
+        code: "INVITATION_DECLINED",
+      });
+    });
+
+    it("Audit C: atomically blocks concurrent invitation acceptance races via updateMany count check", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_MEMBER_PROFILE_ID,
+      } as any);
+
+      vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => {
+        const tx = {
+          $executeRaw: vi.fn().mockResolvedValue(1),
+          teamInvitation: {
+            findUnique: vi.fn().mockResolvedValue({
+              id: MOCK_INVITATION_ID,
+              teamId: MOCK_TEAM_ID,
+              status: InvitationStatus.PENDING,
+              expiresAt: new Date(Date.now() + 86400000),
+              team: { id: MOCK_TEAM_ID, status: TeamStatus.ACTIVE },
+            }),
+            updateMany: vi.fn().mockResolvedValue({ count: 0 }), // Another concurrent request won the race
+          },
+          teamMembership: {
+            findUnique: vi.fn().mockResolvedValue(null),
+          },
+        };
+        return await callback(tx);
+      });
+
+      await expect(
+        InvitationService.acceptInvitation(
+          MOCK_MEMBER_USER_ID,
+          "sometoken12345678901234567890123456789012"
+        )
+      ).rejects.toMatchObject({
+        statusCode: 410,
+        code: "INVITATION_ALREADY_USED",
+      });
+    });
+
+    it("Audit C: declining an open invitation does not mutate the shared database record", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_MEMBER_PROFILE_ID,
+      } as any);
+
+      vi.spyOn(prisma.teamInvitation, "findUnique").mockResolvedValue({
+        id: MOCK_INVITATION_ID,
+        teamId: MOCK_TEAM_ID,
+        invitedPlayerId: null, // Open invite link
+        status: InvitationStatus.PENDING,
+        expiresAt: new Date(Date.now() + 86400000),
+      } as any);
+
+      const updateSpy = vi.spyOn(prisma.teamInvitation, "update").mockResolvedValue({} as any);
+
+      const res = await InvitationService.declineInvitation(
+        MOCK_MEMBER_USER_ID,
+        "sometoken12345678901234567890123456789012"
+      );
+
+      expect(res.message).toBe("Squad invitation declined.");
+      expect(updateSpy).not.toHaveBeenCalled();
+    });
+
+    it("Audit C: revoking an already accepted invitation is rejected with HTTP 400", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_LEADER_PROFILE_ID,
+      } as any);
+
+      vi.spyOn(TeamGuard, "requireTeamLeader").mockResolvedValue({
+        team: { id: MOCK_TEAM_ID, ownerId: MOCK_LEADER_PROFILE_ID, status: TeamStatus.ACTIVE },
+        membership: { id: "mem-1", role: TeamRole.LEAD_INVESTIGATOR },
+        playerId: MOCK_LEADER_PROFILE_ID,
+      });
+
+      vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => {
+        const tx = {
+          $executeRaw: vi.fn().mockResolvedValue(1),
+          teamInvitation: {
+            findUnique: vi.fn().mockResolvedValue({
+              id: MOCK_INVITATION_ID,
+              teamId: MOCK_TEAM_ID,
+              invitationCode: "hash123",
+              status: InvitationStatus.ACCEPTED,
+            }),
+          },
+        };
+        return await callback(tx);
+      });
+
+      await expect(
+        InvitationService.revokeInvitation(MOCK_LEADER_USER_ID, MOCK_TEAM_ID, MOCK_INVITATION_ID)
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        code: "INVITATION_ALREADY_ACCEPTED",
+      });
+    });
+
+    it("Audit D: automatically retries team creation upon unique inviteCode collision", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_LEADER_PROFILE_ID,
+      } as any);
+
+      let attempts = 0;
+      vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => {
+        attempts++;
+        if (attempts === 1) {
+          const p2002Err: any = new Error("Unique constraint failed");
+          p2002Err.code = "P2002";
+          throw p2002Err;
+        }
+
+        const tx = {
+          team: {
+            create: vi.fn().mockResolvedValue({
+              id: MOCK_TEAM_ID,
+              name: "Resilient Squad",
+              inviteCode: "SQ-TEST-CODE",
+              ownerId: MOCK_LEADER_PROFILE_ID,
+              status: TeamStatus.ACTIVE,
+            }),
+          },
+          teamMembership: {
+            create: vi.fn().mockResolvedValue({ id: "mem-new" }),
+          },
+        };
+        return await callback(tx);
+      });
+
+      vi.spyOn(TeamService, "getTeamById").mockResolvedValue({
+        id: MOCK_TEAM_ID,
+        name: "Resilient Squad",
+        description: null,
+        avatarUrl: null,
+        teamCode: "SQ-TEST-CODE",
+        status: TeamStatus.ACTIVE,
+        ownerId: MOCK_LEADER_PROFILE_ID,
+        ownerCodename: "LEADER-1",
+        ownerDisplayName: "Leader",
+        myRole: TeamRole.LEAD_INVESTIGATOR,
+        members: [],
+        activeInvestigations: [],
+        pendingInvitationsCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      const team = await TeamService.createTeam(MOCK_LEADER_USER_ID, {
+        name: "Resilient Squad",
+      });
+
+      expect(attempts).toBe(2);
+      expect(team.id).toBe(MOCK_TEAM_ID);
+    });
+
+    it("Audit E: acquires pg_advisory_xact_lock to serialize asymmetric clue provisioning", async () => {
+      const mockExecuteRaw = vi.fn().mockResolvedValue(1);
+      const mockDbClient = {
+        $executeRaw: mockExecuteRaw,
+        clue: {
+          findMany: vi.fn().mockResolvedValue([
+            {
+              id: "clue-1",
+              assignmentStrategy: "ASYMMETRIC_EXCLUSIVE",
+            },
+          ]),
+        },
+        investigationParticipant: {
+          findMany: vi.fn().mockResolvedValue([{ playerId: MOCK_MEMBER_PROFILE_ID }]),
+        },
+        clueAssignment: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue({ id: "assign-1" }),
+        },
+      };
+
+      const provisioned = await EvidenceService.provisionInvestigationClues(
+        mockDbClient,
+        MOCK_INVESTIGATION_ID,
+        MOCK_CASE_ID,
+        MOCK_CHAPTER_ID,
+        [MOCK_MEMBER_PROFILE_ID]
+      );
+
+      expect(provisioned).toBe(1);
+      expect(mockExecuteRaw).toHaveBeenCalledTimes(1);
+    });
+
+    it("Audit B & D: blocks joining an investigation if the squad is disbanded", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_MEMBER_PROFILE_ID,
+      } as any);
+
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValue({
+        id: MOCK_INVESTIGATION_ID,
+        caseId: MOCK_CASE_ID,
+        teamId: MOCK_TEAM_ID,
+        team: { id: MOCK_TEAM_ID, status: TeamStatus.DISBANDED },
+        playMode: PlayMode.COOPERATIVE,
+        status: InvestigationStatus.IN_PROGRESS,
+        participants: [],
+      } as any);
+
+      await expect(
+        InvestigationService.joinTeamInvestigation(MOCK_MEMBER_USER_ID, MOCK_INVESTIGATION_ID)
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        code: "TEAM_DISBANDED",
+      });
     });
   });
 });

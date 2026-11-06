@@ -163,4 +163,3 @@ export function CreateTeamModal({ isOpen, onClose }: CreateTeamModalProps) {
     </div>
   );
 }
-

@@ -7,6 +7,8 @@ import {
   AssignmentStatus,
   ParticipantStatus,
   ChapterProgressStatus,
+  InvestigationStatus,
+  MembershipStatus,
 } from "@prisma/client";
 import {
   SafeEvidenceSummaryDto,
@@ -79,6 +81,31 @@ export class EvidenceService {
       );
     }
 
+    // For ongoing squad investigations, verify operative maintains active squad membership
+    if (
+      investigation.teamId &&
+      (investigation.status === InvestigationStatus.IN_PROGRESS ||
+        investigation.status === InvestigationStatus.PAUSED ||
+        investigation.status === InvestigationStatus.NOT_STARTED)
+    ) {
+      const membership = await prisma.teamMembership.findUnique({
+        where: {
+          teamId_playerId: {
+            teamId: investigation.teamId,
+            playerId,
+          },
+        },
+      });
+
+      if (!membership || membership.status !== MembershipStatus.ACTIVE) {
+        throw new AppError(
+          "Investigation session not found or restricted",
+          404,
+          "INVESTIGATION_NOT_FOUND"
+        );
+      }
+    }
+
     return {
       investigation,
       participant: investigation.participants[0],
@@ -95,6 +122,12 @@ export class EvidenceService {
     targetChapterId?: string,
     targetPlayerIds?: string[]
   ): Promise<number> {
+    // Concurrency lock: Advisory lock scoped to investigationId prevents race conditions
+    // during simultaneous participant joins or concurrent chapter transitions
+    if (typeof dbClient.$executeRaw === "function") {
+      await dbClient.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${investigationId}))`;
+    }
+
     // 1. Resolve published clues for this case and chapter (or case-level)
     const clues = await dbClient.clue.findMany({
       where: {

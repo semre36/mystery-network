@@ -6,6 +6,7 @@ import {
   ChapterProgressStatus,
   PlayMode,
   MembershipStatus,
+  TeamStatus,
 } from "@prisma/client";
 import { AppError } from "@/lib/errors/app-error";
 import { logger } from "@/lib/logger";
@@ -605,6 +606,11 @@ export class InvestigationService {
       (p: any) => p.playerId === playerId && p.status === ParticipantStatus.ACTIVE
     );
 
+    const isHistorical =
+      investigation.status === InvestigationStatus.SOLVED ||
+      investigation.status === InvestigationStatus.FAILED ||
+      investigation.status === InvestigationStatus.ABANDONED;
+
     let isTeamMember = false;
     if (investigation.teamId) {
       const membership = await prisma.teamMembership.findUnique({
@@ -620,12 +626,35 @@ export class InvestigationService {
       }
     }
 
-    if (!myParticipant && !isTeamMember) {
-      throw new AppError(
-        "Access denied: You are not an active operative in this investigation",
-        404,
-        "INVESTIGATION_NOT_FOUND"
-      );
+    if (investigation.teamId) {
+      if (isHistorical) {
+        // Historical cases: Retrospective viewing permitted for enrolled participants or active squad operatives
+        const wasParticipant = investigation.participants.some((p: any) => p.playerId === playerId);
+        if (!wasParticipant && !isTeamMember) {
+          throw new AppError(
+            "Access denied: You are not authorized to view this investigation dossier",
+            404,
+            "INVESTIGATION_NOT_FOUND"
+          );
+        }
+      } else {
+        // Active investigations: Strictly require active team membership
+        if (!isTeamMember) {
+          throw new AppError(
+            "Access denied: You are not an active operative in this squad investigation",
+            404,
+            "INVESTIGATION_NOT_FOUND"
+          );
+        }
+      }
+    } else {
+      if (!myParticipant) {
+        throw new AppError(
+          "Access denied: You are not an active operative in this investigation",
+          404,
+          "INVESTIGATION_NOT_FOUND"
+        );
+      }
     }
 
     return this.buildWorkspace(investigation, playerId, isTeamMember);
@@ -1109,6 +1138,14 @@ export class InvestigationService {
         "This investigation has concluded and is no longer accepting new operatives",
         400,
         "INVESTIGATION_CONCLUDED"
+      );
+    }
+
+    if (investigation.team && investigation.team.status !== TeamStatus.ACTIVE) {
+      throw new AppError(
+        "The squad conducting this investigation is no longer active",
+        400,
+        "TEAM_DISBANDED"
       );
     }
 
