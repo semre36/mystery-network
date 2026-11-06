@@ -48,7 +48,22 @@ export interface SafeInvestigationWorkspaceDto {
   currentChapter: SafeInvestigationChapterProgressDto | null;
   completedChaptersCount: number;
   totalChapters: number;
-  myParticipantStatus: ParticipantStatus;
+  myParticipantStatus: ParticipantStatus | null;
+  team?: {
+    id: string;
+    name: string;
+    teamCode: string;
+    isMember?: boolean;
+  } | null;
+  participants?: Array<{
+    id: string;
+    playerId: string;
+    codename: string;
+    displayName: string;
+    avatarUrl: string | null;
+    status: ParticipantStatus;
+    joinedAt: string;
+  }>;
 }
 
 export interface InvestigationQueryFilters {

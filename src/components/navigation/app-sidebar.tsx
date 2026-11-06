@@ -70,8 +70,6 @@ const NAV_ITEMS: readonly NavItem[] = [
     name: "Squads & Units",
     href: "/teams",
     icon: Users2,
-    badge: "Phase 09",
-    isComingSoon: true,
   },
   {
     name: "Commendations",

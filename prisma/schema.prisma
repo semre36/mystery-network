@@ -133,6 +133,7 @@ enum MembershipStatus {
 enum InvitationStatus {
   PENDING
   ACCEPTED
+  DECLINED
   EXPIRED
   REVOKED
 }
@@ -231,6 +232,7 @@ model PlayerProfile {
   ownedTeams          Team[]                     @relation("TeamOwner")
   teamMemberships     TeamMembership[]
   createdInvitations  TeamInvitation[]           @relation("InvitationCreator")
+  receivedInvitations TeamInvitation[]           @relation("DirectInvitations")
   caseSubmissions     CaseSubmission[]
   xpTransactions      XPTransaction[]
   achievements        UserAchievement[]
@@ -561,14 +563,16 @@ model PuzzleAttempt {
 // ------------------------------------------------------------------------------
 
 model Team {
-  id         String     @id @default(uuid()) @db.Uuid
-  name       String
-  inviteCode String     @unique
-  ownerId    String     @db.Uuid
-  owner      PlayerProfile @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  status     TeamStatus @default(ACTIVE)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id          String        @id @default(uuid()) @db.Uuid
+  name        String
+  description String?       @db.Text
+  avatarUrl   String?
+  inviteCode  String        @unique
+  ownerId     String        @db.Uuid
+  owner       PlayerProfile @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  status      TeamStatus    @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   members        TeamMembership[]
   invitations    TeamInvitation[]
@@ -598,18 +602,23 @@ model TeamMembership {
 }
 
 model TeamInvitation {
-  id             String           @id @default(uuid()) @db.Uuid
-  teamId         String           @db.Uuid
-  team           Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  invitationCode String           @unique
-  createdById    String           @db.Uuid
-  createdBy      PlayerProfile    @relation("InvitationCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  expiresAt      DateTime
-  status         InvitationStatus @default(PENDING)
-  createdAt      DateTime         @default(now())
+  id              String           @id @default(uuid()) @db.Uuid
+  teamId          String           @db.Uuid
+  team            Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  invitationCode  String           @unique
+  createdById     String           @db.Uuid
+  createdBy       PlayerProfile    @relation("InvitationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  invitedPlayerId String?          @db.Uuid
+  invitedPlayer   PlayerProfile?   @relation("DirectInvitations", fields: [invitedPlayerId], references: [id], onDelete: SetNull)
+  expiresAt       DateTime
+  status          InvitationStatus @default(PENDING)
+  acceptedAt      DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime         @default(now())
 
   @@index([invitationCode])
   @@index([teamId])
+  @@index([invitedPlayerId])
   @@index([status])
   @@index([expiresAt])
   @@map("team_invitations")

@@ -68,6 +68,29 @@ mystery-network/
 │   │       │       │   └── route.ts # Phase 07: Lifecycle status transition endpoint (PATCH)
 │   │       │       └── progress/
 │   │       │           └── route.ts # Phase 07: Chapter progression endpoint (GET/PATCH)
+│   │       ├── teams/
+│   │       │   ├── route.ts    # Phase 09: List / create squads (GET/POST /api/teams)
+│   │       │   └── [teamId]/
+│   │       │       ├── route.ts # Phase 09: Squad dossier & update (GET/PATCH)
+│   │       │       ├── members/
+│   │       │       │   ├── route.ts # Phase 09: Squad roster (GET)
+│   │       │       │   ├── me/
+│   │       │       │   │   └── route.ts # Phase 09: Leave squad (DELETE)
+│   │       │       │   └── [userId]/
+│   │       │       │       └── route.ts # Phase 09: Remove member (DELETE)
+│   │       │       ├── invitations/
+│   │       │       │   ├── route.ts # Phase 09: List / dispatch invites (GET/POST)
+│   │       │       │   └── [invitationId]/
+│   │       │       │       └── route.ts # Phase 09: Revoke invite (DELETE)
+│   │       │       └── transfer-leadership/
+│   │       │           └── route.ts # Phase 09: Transfer command (POST)
+│   │       ├── invitations/
+│   │       │   └── [token]/
+│   │       │       ├── route.ts # Phase 09: Public invitation preview (GET)
+│   │       │       ├── accept/
+│   │       │       │   └── route.ts # Phase 09: Accept invitation (POST)
+│   │       │       └── decline/
+│   │       │           └── route.ts # Phase 09: Decline invitation (POST)
 │   │       └── telegram/
 │   │           └── webhook/
 │   │               └── route.ts # Secure Telegram Bot API Webhook (POST /api/telegram/webhook)
@@ -85,6 +108,10 @@ mystery-network/
 │   │   ├── investigations/     # Phase 07: Player investigation sessions & state machines
 │   │   ├── evidence/           # Phase 08: Clues, forensic documents, asymmetric distribution
 │   │   ├── teams/              # Phase 09: Squads, invites, clue trading channels
+│   │   │   ├── types/          # Squad, member, invitation, and preview DTOs
+│   │   │   ├── validation/     # Zod schemas for team & invite creation/updates
+│   │   │   ├── guards/         # TeamGuard security checks & anti-probing defenses
+│   │   │   └── services/       # TeamService & InvitationService implementations
 │   │   ├── puzzles/            # Phase 10: Interactive minigames, ciphers, decryption engines
 │   │   ├── submissions/        # Phase 12: Accusations, theory verification, scoring
 │   │   ├── progression/        # Phase 12: XP calculations, detective badges, leaderboards

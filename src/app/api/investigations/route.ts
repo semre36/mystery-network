@@ -42,7 +42,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const result = await InvestigationService.startInvestigation(
       user.id,
-      parsed.data.caseIdentifier
+      parsed.data.caseIdentifier,
+      {
+        teamId: parsed.data.teamId,
+        participantPlayerIds: parsed.data.participantPlayerIds,
+      }
     );
 
     return NextResponse.json(

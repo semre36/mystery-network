@@ -81,6 +81,7 @@ Full architectural specifications, security rules, and roadmaps are located in t
 - [Case Management & Discovery System](./docs/CASE_MANAGEMENT.md)
 - [Investigation Engine & Session Management](./docs/INVESTIGATION_ENGINE.md)
 - [Evidence System & Clue Distribution](./docs/EVIDENCE_SYSTEM.md)
+- [Team Collaboration & Multiplayer Investigation](./docs/TEAM_COLLABORATION.md)
 - [Development Guidelines](./docs/DEVELOPMENT_GUIDELINES.md)
 - [Security Standards](./docs/SECURITY_STANDARDS.md)
 - [Project Structure & Directory Map](./docs/PROJECT_STRUCTURE.md)
@@ -98,10 +99,12 @@ Full architectural specifications, security rules, and roadmaps are located in t
 - **Phase 06: Case Management & Discovery System** — Completed (Case Archive, Classified Dossier Briefing, Campaign Directory, Threat Classification, Public API Redaction).
 - **Phase 07: Investigation Engine & Session Management** — Completed (Lifecycle State Machine, Atomic Session Creation & Reuse, Chapter Progression Engine, Workspace UI, Session History).
 - **Phase 08: Evidence System & Clue Distribution** — Completed (Persistent Evidence Vault, Asymmetric Clue Distribution, Private Notes Isolation, Peer-to-Peer Sharing, Storage Abstraction, Anti-IDOR Authorization).
+- **Phase 09: Team Collaboration & Multiplayer Investigation** — Completed (Squad Roster Management, Cryptographic 256-bit Invitation Pipeline, Cooperative Investigations, Clue Synchronization, Leader Role Guards).
 - Health Endpoint: `GET /api/health`
 - Telegram Webhook: `POST /api/telegram/webhook`
 - Auth Endpoints: `POST /api/auth/telegram`, `GET /api/auth/session`, `POST /api/auth/logout`
 - Player Endpoints: `GET /api/player/me`, `PATCH /api/player/profile`
 - Case & Campaign Endpoints: `GET /api/cases`, `GET /api/cases/[caseId]`, `GET /api/campaigns`, `GET /api/campaigns/[slug]`
-- Investigation Endpoints: `POST /api/investigations`, `GET /api/investigations`, `GET /api/investigations/[investigationId]`, `PATCH /api/investigations/[investigationId]/status`, `GET /api/investigations/[investigationId]/progress`, `PATCH /api/investigations/[investigationId]/progress`
+- Investigation Endpoints: `POST /api/investigations`, `GET /api/investigations`, `GET /api/investigations/[investigationId]`, `PATCH /api/investigations/[investigationId]/status`, `GET /api/investigations/[investigationId]/progress`, `PATCH /api/investigations/[investigationId]/progress`, `POST /api/investigations/[investigationId]/join`
 - Evidence Endpoints: `GET /api/investigations/[investigationId]/evidence`, `GET /api/investigations/[investigationId]/evidence/[evidenceId]`, `POST /api/investigations/[investigationId]/evidence/[evidenceId]/notes`, `POST /api/investigations/[investigationId]/evidence/[evidenceId]/share`, `GET /api/investigations/[investigationId]/evidence/shared`
+- Team Endpoints: `GET /api/teams`, `POST /api/teams`, `GET /api/teams/[teamId]`, `PATCH /api/teams/[teamId]`, `GET /api/teams/[teamId]/members`, `DELETE /api/teams/[teamId]/members/me`, `DELETE /api/teams/[teamId]/members/[userId]`, `POST /api/teams/[teamId]/transfer-leadership`, `GET /api/teams/[teamId]/invitations`, `POST /api/teams/[teamId]/invitations`, `DELETE /api/teams/[teamId]/invitations/[invitationId]`, `GET /api/invitations/[token]`, `POST /api/invitations/[token]/accept`, `POST /api/invitations/[token]/decline`

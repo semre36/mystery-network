@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   Loader2,
   Shield,
+  Users,
+  UserPlus,
 } from "lucide-react";
 import { InvestigationStatus, CaseDifficulty } from "@prisma/client";
 import type { SafeInvestigationWorkspaceDto } from "@/modules/investigations/types/investigation.types";
@@ -64,14 +66,35 @@ const STATUS_CONFIG: Record<
   },
 };
 
-export function WorkspaceHeader({ workspace }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({ workspace, onRefresh }: WorkspaceHeaderProps) {
   const router = useRouter();
   const [transitioning, setTransitioning] = useState(false);
+  const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const statusStyle = STATUS_CONFIG[workspace.status] ?? STATUS_CONFIG.IN_PROGRESS;
   const allChaptersCompleted =
     workspace.totalChapters > 0 && workspace.completedChaptersCount === workspace.totalChapters;
+
+  const handleJoin = async () => {
+    setJoining(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/investigations/${workspace.id}/join`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to join squad investigation");
+      }
+      router.refresh();
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to join squad operation");
+    } finally {
+      setJoining(false);
+    }
+  };
 
   const handleAction = async (action: "PAUSE" | "RESUME" | "ABANDON" | "COMPLETE") => {
     if (action === "ABANDON") {
@@ -106,6 +129,37 @@ export function WorkspaceHeader({ workspace }: WorkspaceHeaderProps) {
 
   return (
     <div className="space-y-4">
+      {/* Squad Member Join Prompt */}
+      {workspace.team?.isMember && !workspace.myParticipantStatus && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-950/30 p-4 flex flex-wrap items-center justify-between gap-4 shadow-lg backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <Users className="w-5 h-5 text-amber-400 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-amber-200">
+                Active Squad Operation: {workspace.team.name}
+              </p>
+              <p className="text-xs text-amber-300/80">
+                You are an active member of this squad, but your operative status is not yet
+                deployed to this active investigation session.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleJoin}
+            disabled={joining}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-mono text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 shadow-md shadow-cyan-900/30"
+          >
+            {joining ? (
+              <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+            ) : (
+              <UserPlus className="w-4 h-4 text-slate-950" />
+            )}
+            <span>Deploy to Squad Operation</span>
+          </button>
+        </div>
+      )}
+
       {/* Back Link */}
       <div className="flex items-center justify-between">
         <Link
@@ -124,10 +178,19 @@ export function WorkspaceHeader({ workspace }: WorkspaceHeaderProps) {
       {/* Main Tactical Header Box */}
       <div className="rounded-2xl bg-gradient-to-br from-[#0c1424] via-[#09101d] to-[#070b16] border border-[#1e2a44] p-6 shadow-xl">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-xs font-semibold text-cyan-400 px-2.5 py-1 rounded bg-cyan-950/60 border border-cyan-800/60">
               {workspace.case.caseCode}
             </span>
+            {workspace.team && (
+              <Link
+                href={`/teams/${workspace.team.id}`}
+                className="font-mono text-xs font-semibold text-purple-400 hover:text-purple-300 px-2.5 py-1 rounded bg-purple-950/60 border border-purple-800/60 flex items-center gap-1.5 transition-colors"
+              >
+                <Users className="w-3.5 h-3.5 text-purple-400" />
+                <span>SQUAD: {workspace.team.name}</span>
+              </Link>
+            )}
             <span
               className={`font-mono text-[11px] uppercase tracking-wider px-2.5 py-1 rounded border flex items-center gap-1.5 ${statusStyle.bg} ${statusStyle.border} ${statusStyle.text}`}
             >
@@ -227,6 +290,26 @@ export function WorkspaceHeader({ workspace }: WorkspaceHeaderProps) {
             {transitioning && <Loader2 className="w-4 h-4 animate-spin text-cyan-400 ml-1" />}
           </div>
         </div>
+
+        {/* Participating Operatives Roster */}
+        {workspace.participants && workspace.participants.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-[#18233a] flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider mr-1">
+              Active Unit Roster ({workspace.participants.length}):
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {workspace.participants.map((p) => (
+                <span
+                  key={p.id}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#101726] border border-[#1e2a44] text-[11px] font-mono text-cyan-300"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                  <span className="font-semibold">{p.codename}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="mt-3 text-xs font-mono text-rose-400 flex items-center gap-1.5">

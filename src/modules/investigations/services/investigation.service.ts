@@ -5,9 +5,11 @@ import {
   ParticipantStatus,
   ChapterProgressStatus,
   PlayMode,
+  MembershipStatus,
 } from "@prisma/client";
 import { AppError } from "@/lib/errors/app-error";
 import { logger } from "@/lib/logger";
+import { TeamGuard } from "@/modules/teams/guards/team.guard";
 import type {
   SafeInvestigationSummaryDto,
   SafeInvestigationWorkspaceDto,
@@ -41,12 +43,19 @@ export class InvestigationService {
   }
 
   /**
-   * Internal helper to fetch an investigation with full details filtered for an authorized participant.
+   * Internal helper to fetch an investigation with full details.
    */
-  private static async fetchInvestigationWithDetails(investigationId: string, playerId: string) {
+  private static async fetchInvestigationWithDetails(investigationId: string) {
     return prisma.investigation.findUnique({
       where: { id: investigationId },
       include: {
+        team: {
+          select: {
+            id: true,
+            name: true,
+            inviteCode: true,
+          },
+        },
         case: {
           include: {
             campaign: {
@@ -75,7 +84,16 @@ export class InvestigationService {
           },
         },
         participants: {
-          where: { playerId, status: ParticipantStatus.ACTIVE },
+          include: {
+            player: {
+              select: {
+                id: true,
+                codename: true,
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+          },
         },
         progress: {
           include: {
@@ -102,8 +120,17 @@ export class InvestigationService {
   /**
    * Internal helper to build a sanitized SafeInvestigationWorkspaceDto.
    */
-  private static buildWorkspace(investigation: any): SafeInvestigationWorkspaceDto {
-    const participant = investigation.participants[0];
+  private static buildWorkspace(
+    investigation: any,
+    playerId?: string,
+    isTeamMember: boolean = false
+  ): SafeInvestigationWorkspaceDto {
+    const myParticipant = playerId
+      ? investigation.participants.find(
+          (p: any) => p.playerId === playerId && p.status === ParticipantStatus.ACTIVE
+        )
+      : investigation.participants[0];
+
     const c = investigation.case;
 
     const safeCase: SafeCaseSummaryDto = {
@@ -130,7 +157,7 @@ export class InvestigationService {
       isFeatured: c.caseCode === "CASE-001-MIDNIGHT-PROTOCOL",
     };
 
-    const safeCharacters: SafeCharacterDto[] = c.characters.map((char: any) => {
+    const safeCharacters: SafeCharacterDto[] = (c.characters ?? []).map((char: any) => {
       const meta =
         char.metadata && typeof char.metadata === "object"
           ? (char.metadata as Record<string, unknown>)
@@ -167,6 +194,16 @@ export class InvestigationService {
       safeChapters.find((ch) => ch.status === ChapterProgressStatus.UNLOCKED) ??
       (safeChapters.length > 0 ? safeChapters[safeChapters.length - 1] : null);
 
+    const safeParticipants = (investigation.participants ?? []).map((p: any) => ({
+      id: p.id,
+      playerId: p.playerId,
+      codename: p.player?.codename ?? "Unknown Operative",
+      displayName: p.player?.displayName ?? "Operative",
+      avatarUrl: p.player?.avatarUrl ?? null,
+      status: p.status,
+      joinedAt: p.joinedAt instanceof Date ? p.joinedAt.toISOString() : p.joinedAt,
+    }));
+
     return {
       id: investigation.id,
       status: investigation.status,
@@ -180,17 +217,31 @@ export class InvestigationService {
       currentChapter,
       completedChaptersCount,
       totalChapters: safeChapters.length,
-      myParticipantStatus: participant.status,
+      myParticipantStatus: myParticipant ? myParticipant.status : null,
+      team: investigation.team
+        ? {
+            id: investigation.team.id,
+            name: investigation.team.name,
+            teamCode: investigation.team.inviteCode,
+            isMember: isTeamMember,
+          }
+        : null,
+      participants: safeParticipants,
     };
   }
 
   /**
    * Starts or resumes an investigation for an accessible published case.
+   * Supports both solo and cooperative squad operations.
    * Concurrency-safe: Reuses existing active or paused sessions to prevent accidental duplicates.
    */
   public static async startInvestigation(
     userId: string,
-    caseIdentifier: string
+    caseIdentifier: string,
+    options?: {
+      teamId?: string;
+      participantPlayerIds?: string[];
+    }
   ): Promise<{ investigationId: string; wasResumed: boolean }> {
     const playerId = await this.getPlayerProfileId(userId);
 
@@ -221,23 +272,197 @@ export class InvestigationService {
       throw new AppError("Published case dossier not found or restricted", 404, "CASE_NOT_FOUND");
     }
 
+    // Branch 1: Cooperative Squad Investigation
+    if (options?.teamId) {
+      const teamId = options.teamId.trim();
+      await TeamGuard.requireTeamLeader(teamId, playerId);
+
+      // Determine active squad members to enroll
+      const activeMembers = await prisma.teamMembership.findMany({
+        where: {
+          teamId,
+          status: MembershipStatus.ACTIVE,
+        },
+        select: { playerId: true },
+      });
+
+      let targetParticipantIds: string[];
+      if (options.participantPlayerIds && options.participantPlayerIds.length > 0) {
+        const allowedMemberIds = new Set(activeMembers.map((m) => m.playerId));
+        const filtered = options.participantPlayerIds.filter((id) => allowedMemberIds.has(id));
+        targetParticipantIds = Array.from(new Set([playerId, ...filtered]));
+      } else {
+        targetParticipantIds = activeMembers.map((m) => m.playerId);
+        if (!targetParticipantIds.includes(playerId)) {
+          targetParticipantIds.push(playerId);
+        }
+      }
+
+      return await prisma.$transaction(async (tx) => {
+        // Concurrency lock scoped to team + case
+        if (typeof tx.$executeRaw === "function") {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${teamId}), hashtext(${caseRecord.id}))`;
+        }
+
+        // Check for existing non-terminal cooperative investigation for this squad & case
+        const existingInvestigation = await tx.investigation.findFirst({
+          where: {
+            caseId: caseRecord.id,
+            teamId,
+            playMode: PlayMode.COOPERATIVE,
+            status: {
+              in: [
+                InvestigationStatus.IN_PROGRESS,
+                InvestigationStatus.PAUSED,
+                InvestigationStatus.NOT_STARTED,
+              ],
+            },
+          },
+          include: {
+            participants: true,
+          },
+        });
+
+        if (existingInvestigation) {
+          if (
+            existingInvestigation.status === InvestigationStatus.PAUSED ||
+            existingInvestigation.status === InvestigationStatus.NOT_STARTED
+          ) {
+            await tx.investigation.update({
+              where: { id: existingInvestigation.id },
+              data: {
+                status: InvestigationStatus.IN_PROGRESS,
+                startedAt:
+                  existingInvestigation.status === InvestigationStatus.NOT_STARTED
+                    ? new Date()
+                    : existingInvestigation.startedAt,
+                updatedAt: new Date(),
+              },
+            });
+
+            logger.info("Resumed paused squad investigation", {
+              investigationId: existingInvestigation.id,
+              teamId,
+              caseCode: caseRecord.caseCode,
+            });
+          }
+
+          // Ensure caller and specified participants are enrolled
+          for (const pid of targetParticipantIds) {
+            const hasParticipant = existingInvestigation.participants.some(
+              (p) => p.playerId === pid && p.status === ParticipantStatus.ACTIVE
+            );
+            if (!hasParticipant) {
+              await tx.investigationParticipant.upsert({
+                where: {
+                  investigationId_playerId: {
+                    investigationId: existingInvestigation.id,
+                    playerId: pid,
+                  },
+                },
+                create: {
+                  investigationId: existingInvestigation.id,
+                  playerId: pid,
+                  status: ParticipantStatus.ACTIVE,
+                  joinedAt: new Date(),
+                },
+                update: {
+                  status: ParticipantStatus.ACTIVE,
+                },
+              });
+            }
+          }
+
+          return {
+            investigationId: existingInvestigation.id,
+            wasResumed: true,
+          };
+        }
+
+        // Initialize new cooperative investigation
+        const newInvestigation = await tx.investigation.create({
+          data: {
+            caseId: caseRecord.id,
+            teamId,
+            status: InvestigationStatus.IN_PROGRESS,
+            playMode: PlayMode.COOPERATIVE,
+            startedAt: new Date(),
+          },
+        });
+
+        // Register initial participants
+        await tx.investigationParticipant.createMany({
+          data: targetParticipantIds.map((pId) => ({
+            investigationId: newInvestigation.id,
+            playerId: pId,
+            status: ParticipantStatus.ACTIVE,
+            joinedAt: new Date(),
+          })),
+        });
+
+        // Initialize chapter progression
+        if (caseRecord.chapters.length > 0) {
+          const sortedChapters = [...caseRecord.chapters].sort(
+            (a, b) => a.chapterOrder - b.chapterOrder
+          );
+          const firstChapterId = sortedChapters[0].id;
+
+          const progressEntries = sortedChapters.map((chapter) => ({
+            investigationId: newInvestigation.id,
+            chapterId: chapter.id,
+            status:
+              chapter.id === firstChapterId
+                ? ChapterProgressStatus.IN_PROGRESS
+                : ChapterProgressStatus.LOCKED,
+            unlockedAt: chapter.id === firstChapterId ? new Date() : null,
+          }));
+
+          await tx.investigationProgress.createMany({
+            data: progressEntries,
+          });
+
+          // Provision Act 1 evidence for squad participants
+          if (typeof (tx as any).clue?.findMany === "function") {
+            await EvidenceService.provisionInvestigationClues(
+              tx,
+              newInvestigation.id,
+              caseRecord.id,
+              firstChapterId,
+              targetParticipantIds
+            );
+          }
+        }
+
+        logger.info("Initialized new squad investigation session", {
+          investigationId: newInvestigation.id,
+          teamId,
+          caseCode: caseRecord.caseCode,
+          participantCount: targetParticipantIds.length,
+        });
+
+        return {
+          investigationId: newInvestigation.id,
+          wasResumed: false,
+        };
+      });
+    }
+
+    // Branch 2: Solo Investigation
     // Execute atomic session creation or reuse in an interactive transaction
     return await prisma.$transaction(async (tx) => {
       // Concurrency lock: Acquire transactional advisory lock scoped to (playerId, caseRecord.id).
-      // This serializes concurrent initialization attempts for the same player & case at the database level,
-      // guaranteeing that simultaneous requests resolve to the identical active investigation session,
-      // while concurrent requests for different players or different cases run unblocked.
       if (typeof tx.$executeRaw === "function") {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${playerId}), hashtext(${caseRecord.id}))`;
       }
 
-      // 1. Check for an existing non-terminal investigation for this player & case
+      // 1. Check for an existing non-terminal solo investigation for this player & case
       const existingParticipant = await tx.investigationParticipant.findFirst({
         where: {
           playerId,
           status: ParticipantStatus.ACTIVE,
           investigation: {
             caseId: caseRecord.id,
+            playMode: PlayMode.SOLO,
             status: {
               in: [
                 InvestigationStatus.IN_PROGRESS,
@@ -352,7 +577,7 @@ export class InvestigationService {
 
   /**
    * Retrieves an authenticated player's complete workspace for an active investigation.
-   * Enforces strict participant authorization and redacts all secret clues/puzzle solutions.
+   * Enforces strict participant / team member authorization and redacts all secret clues/puzzle solutions.
    */
   public static async getInvestigationWorkspace(
     userId: string,
@@ -365,7 +590,7 @@ export class InvestigationService {
       throw new AppError("Invalid investigation session ID", 400, "INVALID_INVESTIGATION_ID");
     }
 
-    const investigation = await this.fetchInvestigationWithDetails(trimmedId, playerId);
+    const investigation = await this.fetchInvestigationWithDetails(trimmedId);
 
     if (!investigation) {
       throw new AppError(
@@ -375,8 +600,27 @@ export class InvestigationService {
       );
     }
 
-    // Verify participant authorization
-    if (investigation.participants.length === 0) {
+    // Verify participant authorization or team membership
+    const myParticipant = investigation.participants.find(
+      (p: any) => p.playerId === playerId && p.status === ParticipantStatus.ACTIVE
+    );
+
+    let isTeamMember = false;
+    if (investigation.teamId) {
+      const membership = await prisma.teamMembership.findUnique({
+        where: {
+          teamId_playerId: {
+            teamId: investigation.teamId,
+            playerId,
+          },
+        },
+      });
+      if (membership && membership.status === MembershipStatus.ACTIVE) {
+        isTeamMember = true;
+      }
+    }
+
+    if (!myParticipant && !isTeamMember) {
       throw new AppError(
         "Access denied: You are not an active operative in this investigation",
         404,
@@ -384,7 +628,7 @@ export class InvestigationService {
       );
     }
 
-    return this.buildWorkspace(investigation);
+    return this.buildWorkspace(investigation, playerId, isTeamMember);
   }
 
   /**
@@ -530,9 +774,15 @@ export class InvestigationService {
       throw new AppError("Invalid investigation session ID", 400, "INVALID_INVESTIGATION_ID");
     }
 
-    const investigation = await this.fetchInvestigationWithDetails(trimmedId, playerId);
+    const investigation = await this.fetchInvestigationWithDetails(trimmedId);
 
-    if (!investigation || investigation.participants.length === 0) {
+    const isParticipant =
+      investigation &&
+      investigation.participants.some(
+        (p: any) => p.playerId === playerId && p.status === ParticipantStatus.ACTIVE
+      );
+
+    if (!investigation || !isParticipant) {
       throw new AppError(
         "Investigation session not found or restricted",
         404,
@@ -548,7 +798,7 @@ export class InvestigationService {
       case "PAUSE":
         if (currentStatus === InvestigationStatus.PAUSED) {
           // Idempotent
-          return this.buildWorkspace(investigation);
+          return this.buildWorkspace(investigation, playerId);
         }
         if (currentStatus !== InvestigationStatus.IN_PROGRESS) {
           throw new AppError(
@@ -563,7 +813,7 @@ export class InvestigationService {
       case "RESUME":
         if (currentStatus === InvestigationStatus.IN_PROGRESS) {
           // Idempotent
-          return this.buildWorkspace(investigation);
+          return this.buildWorkspace(investigation, playerId);
         }
         if (
           currentStatus !== InvestigationStatus.PAUSED &&
@@ -581,7 +831,7 @@ export class InvestigationService {
       case "ABANDON":
         if (currentStatus === InvestigationStatus.ABANDONED) {
           // Idempotent
-          return this.buildWorkspace(investigation);
+          return this.buildWorkspace(investigation, playerId);
         }
         if (
           currentStatus === InvestigationStatus.SOLVED ||
@@ -599,7 +849,7 @@ export class InvestigationService {
       case "COMPLETE":
         if (currentStatus === InvestigationStatus.SOLVED) {
           // Idempotent
-          return this.buildWorkspace(investigation);
+          return this.buildWorkspace(investigation, playerId);
         }
         if (currentStatus !== InvestigationStatus.IN_PROGRESS) {
           throw new AppError(
@@ -628,7 +878,7 @@ export class InvestigationService {
       case "FAIL":
         if (currentStatus === InvestigationStatus.FAILED) {
           // Idempotent
-          return this.buildWorkspace(investigation);
+          return this.buildWorkspace(investigation, playerId);
         }
         if (
           currentStatus === InvestigationStatus.SOLVED ||
@@ -669,7 +919,7 @@ export class InvestigationService {
       action,
     });
 
-    return this.buildWorkspace(investigation);
+    return this.buildWorkspace(investigation, playerId);
   }
 
   /**
@@ -689,9 +939,15 @@ export class InvestigationService {
       throw new AppError("Invalid investigation session ID", 400, "INVALID_INVESTIGATION_ID");
     }
 
-    const investigation = await this.fetchInvestigationWithDetails(trimmedId, playerId);
+    const investigation = await this.fetchInvestigationWithDetails(trimmedId);
 
-    if (!investigation || investigation.participants.length === 0) {
+    const isParticipant =
+      investigation &&
+      investigation.participants.some(
+        (p: any) => p.playerId === playerId && p.status === ParticipantStatus.ACTIVE
+      );
+
+    if (!investigation || !isParticipant) {
       throw new AppError(
         "Investigation session not found or restricted",
         404,
@@ -801,6 +1057,134 @@ export class InvestigationService {
     });
     investigation.updatedAt = updated.updatedAt;
 
-    return this.buildWorkspace(investigation);
+    return this.buildWorkspace(investigation, playerId);
+  }
+
+  /**
+   * Enrolls an authenticated active squad member into an ongoing cooperative investigation.
+   * Concurrency-safe: Provisions newly eligible chapter clues without re-provisioning or overwriting
+   * existing asymmetric clue allocations.
+   */
+  public static async joinTeamInvestigation(
+    userId: string,
+    investigationId: string
+  ): Promise<SafeInvestigationWorkspaceDto> {
+    const playerId = await this.getPlayerProfileId(userId);
+
+    const trimmedId = investigationId.trim();
+    if (!trimmedId || !UUID_REGEX.test(trimmedId)) {
+      throw new AppError("Invalid investigation session ID", 400, "INVALID_INVESTIGATION_ID");
+    }
+
+    const investigation = await prisma.investigation.findUnique({
+      where: { id: trimmedId },
+      include: {
+        team: true,
+        participants: true,
+        progress: {
+          include: { chapter: true },
+          orderBy: { chapter: { chapterOrder: "asc" } },
+        },
+      },
+    });
+
+    if (!investigation) {
+      throw new AppError("Investigation session not found", 404, "INVESTIGATION_NOT_FOUND");
+    }
+
+    if (!investigation.teamId || investigation.playMode !== PlayMode.COOPERATIVE) {
+      throw new AppError(
+        "This investigation is not a cooperative squad operation",
+        400,
+        "NOT_COOPERATIVE_INVESTIGATION"
+      );
+    }
+
+    if (
+      investigation.status === InvestigationStatus.SOLVED ||
+      investigation.status === InvestigationStatus.ABANDONED ||
+      investigation.status === InvestigationStatus.FAILED
+    ) {
+      throw new AppError(
+        "This investigation has concluded and is no longer accepting new operatives",
+        400,
+        "INVESTIGATION_CONCLUDED"
+      );
+    }
+
+    // Verify caller is an active member of the squad
+    const membership = await prisma.teamMembership.findUnique({
+      where: {
+        teamId_playerId: {
+          teamId: investigation.teamId,
+          playerId,
+        },
+      },
+    });
+
+    if (!membership || membership.status !== MembershipStatus.ACTIVE) {
+      throw new AppError(
+        "You are not an active operative of the squad conducting this investigation",
+        403,
+        "NOT_TEAM_MEMBER"
+      );
+    }
+
+    // Join if not already an active participant
+    const isAlreadyActive = investigation.participants.some(
+      (p) => p.playerId === playerId && p.status === ParticipantStatus.ACTIVE
+    );
+
+    if (!isAlreadyActive) {
+      await prisma.$transaction(async (tx) => {
+        const existingParticipant = await tx.investigationParticipant.findUnique({
+          where: {
+            investigationId_playerId: {
+              investigationId: trimmedId,
+              playerId,
+            },
+          },
+        });
+
+        if (existingParticipant) {
+          await tx.investigationParticipant.update({
+            where: { id: existingParticipant.id },
+            data: { status: ParticipantStatus.ACTIVE },
+          });
+        } else {
+          await tx.investigationParticipant.create({
+            data: {
+              investigationId: trimmedId,
+              playerId,
+              status: ParticipantStatus.ACTIVE,
+              joinedAt: new Date(),
+            },
+          });
+        }
+
+        // Provision eligible clues for the current chapter
+        const activeChapter =
+          investigation.progress.find((p) => p.status === ChapterProgressStatus.IN_PROGRESS) ??
+          investigation.progress.find((p) => p.status === ChapterProgressStatus.UNLOCKED);
+
+        if (activeChapter && typeof (tx as any).clue?.findMany === "function") {
+          await EvidenceService.provisionInvestigationClues(
+            tx,
+            trimmedId,
+            investigation.caseId,
+            activeChapter.chapterId,
+            [playerId]
+          );
+        }
+      });
+
+      logger.info("Operative joined active squad investigation", {
+        investigationId: trimmedId,
+        teamId: investigation.teamId,
+        playerId,
+      });
+    }
+
+    return await this.getInvestigationWorkspace(userId, trimmedId);
   }
 }

@@ -204,3 +204,46 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 - [x] Automated test suite implemented (`tests/evidence.test.ts` — 20 tests; 181 total tests passing across 9 test files).
 - [x] Complete documentation authored (`docs/EVIDENCE_SYSTEM.md`).
 - [x] Zero regressions across Phase 01–07 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.
+
+---
+
+## Phase 09: Team Collaboration & Multiplayer Investigation System — Acceptance Checklist
+
+- [x] Prisma schema enhanced with `Team.description`, `Team.avatarUrl`, `TeamInvitation.invitedPlayerId`, `TeamInvitation.acceptedAt`, `TeamInvitation.revokedAt`, and `InvitationStatus.DECLINED`.
+- [x] Database migration applied to live Neon PostgreSQL (`20261106131500_add_team_collaboration_and_invitation_enhancements`).
+- [x] Domain types and Zod validation schemas implemented (`CreateTeamSchema`, `UpdateTeamSchema`, `CreateInvitationSchema`, `TransferLeadershipSchema`, `StartTeamInvestigationSchema`).
+- [x] Centralized squad security guards implemented (`TeamGuard`) with uniform HTTP 404 anti-probing defense and Lead Investigator role authorization.
+- [x] Squad domain service implemented (`TeamService`): creation, squad retrieval, dossier inspection, metadata updates, voluntary departure (with sole-leader protection and auto-disband), member removal, and leadership transfer.
+- [x] Cryptographic invitation token pipeline implemented (`InvitationService`): 256-bit random entropy, SHA-256 database hashing, sanitized public preview, single-use atomic acceptance, decline, and revocation.
+- [x] Multiplayer investigation coordination implemented in `InvestigationService`:
+  - `startInvestigation` supports `options.teamId`, validates Lead Investigator authority, sets `playMode: PlayMode.COOPERATIVE`, creates multi-participant sessions, and provisions Act 1 clues.
+  - Concurrency locking with PostgreSQL advisory locks prevents duplicate squad investigation creation.
+  - `joinTeamInvestigation` activates team members in `InvestigationParticipant` and provisions eligible `ALL_PLAYERS` clues for the active chapter.
+  - Strict preservation of `ASYMMETRIC_EXCLUSIVE` clue isolation: exclusive clues already assigned to an operative are never transferred or reassigned.
+  - Solo investigations remain 100% functional with zero regressions.
+- [x] REST API endpoints implemented:
+  - `GET /api/teams`
+  - `POST /api/teams`
+  - `GET /api/teams/[teamId]`
+  - `PATCH /api/teams/[teamId]`
+  - `GET /api/teams/[teamId]/members`
+  - `DELETE /api/teams/[teamId]/members/me`
+  - `DELETE /api/teams/[teamId]/members/[userId]`
+  - `POST /api/teams/[teamId]/transfer-leadership`
+  - `GET /api/teams/[teamId]/invitations`
+  - `POST /api/teams/[teamId]/invitations`
+  - `DELETE /api/teams/[teamId]/invitations/[invitationId]`
+  - `GET /api/invitations/[token]`
+  - `POST /api/invitations/[token]/accept`
+  - `POST /api/invitations/[token]/decline`
+  - `POST /api/investigations/[investigationId]/join`
+- [x] Interactive UI pages and components implemented:
+  - `/teams` (Squads Directory & My Teams dashboard)
+  - `/teams/[teamId]` (Squad Detail Dossier, Operative Roster, and Active Squad Operations)
+  - `/invitations/[token]` (Public/Authenticated Commission Landing Page)
+  - Modals: `CreateTeamModal`, `InviteMemberModal`, `TransferLeadershipModal`
+  - Investigation workspace updated: Squad callsign badge, active unit roster, and deployment banner for squad members.
+  - Navigation sidebar updated: `/teams` activated and highlighted.
+- [x] Automated test suite implemented (`tests/teams.test.ts` — 18 tests; 211 total tests passing across all 10 test files).
+- [x] Architecture and API documentation authored (`docs/TEAM_COLLABORATION.md`).
+- [x] Zero regressions across Phase 01–08 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.

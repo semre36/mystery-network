@@ -7,6 +7,8 @@ export const StartInvestigationSchema = z.object({
     .trim()
     .min(1, "Case identifier is required")
     .max(100, "Case identifier too long"),
+  teamId: z.string().uuid("Invalid squad identifier").optional(),
+  participantPlayerIds: z.array(z.string().uuid("Invalid operative identifier")).optional(),
 });
 
 export const InvestigationTransitionSchema = z.object({
