@@ -332,3 +332,4 @@ export function ResultsView({ results }: ResultsViewProps) {
     </div>
   );
 }
+

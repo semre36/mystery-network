@@ -151,3 +151,4 @@ export function ProgressionView({ progression }: ProgressionViewProps) {
     </div>
   );
 }
+

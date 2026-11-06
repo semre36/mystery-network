@@ -14,3 +14,4 @@ ALTER TABLE "xp_transactions" ADD COLUMN     "referenceKey" TEXT;
 
 -- CreateIndex
 CREATE UNIQUE INDEX "xp_transactions_referenceKey_key" ON "xp_transactions"("referenceKey");
+

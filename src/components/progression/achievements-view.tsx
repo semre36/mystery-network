@@ -122,3 +122,4 @@ export function AchievementsView({ achievements }: AchievementsViewProps) {
     </div>
   );
 }
+

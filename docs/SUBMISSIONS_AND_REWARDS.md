@@ -123,3 +123,4 @@ Registered achievements in `prisma/seed.ts`:
 | `/api/investigations/[investigationId]/results` | `GET` | Retrieve official judgment report and dimension scores. |
 | `/api/player/progression` | `GET` | Retrieve player level, rank, XP progress, and transaction ledger. |
 | `/api/player/achievements` | `GET` | Retrieve catalog of all achievements with unlock states. |
+

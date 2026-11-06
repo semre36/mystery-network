@@ -236,6 +236,8 @@ model User {
   lastName         String?
   languageCode     String?
   status           UserStatus      @default(ACTIVE)
+  suspensionReason String?
+  suspendedAt      DateTime?
   lastActiveAt     DateTime?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
@@ -243,6 +245,7 @@ model User {
   profile          PlayerProfile?
   sessions         AuthSession[]
   auditLogs        AdminAuditLog[]
+  adminRoles       AdminUserRole[]
 
   @@index([telegramId])
   @@index([status])
@@ -910,9 +913,24 @@ model AdminRole {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  permissions AdminRolePermission[]
+  permissions     AdminRolePermission[]
+  userAssignments AdminUserRole[]
 
   @@map("admin_roles")
+}
+
+model AdminUserRole {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId     String    @db.Uuid
+  role       AdminRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedAt DateTime  @default(now())
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("admin_user_roles")
 }
 
 model AdminPermission {
@@ -954,6 +972,16 @@ model AdminAuditLog {
   @@index([resourceType, resourceId])
   @@index([createdAt(sort: Desc)])
   @@map("admin_audit_logs")
+}
+
+model SystemSetting {
+  key         String   @id
+  value       Json
+  description String?
+  updatedAt   DateTime @updatedAt
+  updatedById String?  @db.Uuid
+
+  @@map("system_settings")
 }
 
 // ------------------------------------------------------------------------------

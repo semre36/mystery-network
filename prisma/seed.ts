@@ -16,13 +16,45 @@ async function main() {
   console.log("🌱 Starting idempotent database seeding for MYSTERY NETWORK...");
 
   // ----------------------------------------------------------------------------
-  // 1. Administrative Roles & Permissions
+  // 1. Administrative Roles & Permissions (Phase 13)
   // ----------------------------------------------------------------------------
   const permissions = [
-    { action: "cases:create", description: "Author new mystery case definitions" },
-    { action: "cases:publish", description: "Publish cases to the live network" },
-    { action: "users:moderate", description: "Suspend or review player accounts" },
-    { action: "audit:view", description: "Inspect administrative audit logs" },
+    { action: "DASHBOARD_VIEW", description: "View administrative overview dashboard and metrics" },
+    { action: "USER_VIEW", description: "Inspect registered player dossiers and profiles" },
+    { action: "USER_UPDATE", description: "Update player operational metadata and settings" },
+    { action: "USER_SUSPEND", description: "Temporarily suspend player investigation access" },
+    { action: "USER_BAN", description: "Permanently ban malicious actors from the platform" },
+    { action: "ROLE_VIEW", description: "Inspect administrative roles and assignments" },
+    { action: "ROLE_CREATE", description: "Define new operational administrator roles" },
+    { action: "ROLE_UPDATE", description: "Modify role permissions and parameters" },
+    { action: "ROLE_ASSIGN", description: "Assign or revoke administrative roles on user accounts" },
+    { action: "CAMPAIGN_VIEW", description: "Inspect published and draft campaigns" },
+    { action: "CAMPAIGN_CREATE", description: "Author new campaign story arcs" },
+    { action: "CAMPAIGN_UPDATE", description: "Edit campaign metadata, briefing, and covers" },
+    { action: "CAMPAIGN_PUBLISH", description: "Publish or unpublish campaigns on the network" },
+    { action: "CAMPAIGN_ARCHIVE", description: "Archive completed or decommissioned campaigns" },
+    { action: "CASE_VIEW", description: "Inspect all cases including drafts and review states" },
+    { action: "CASE_CREATE", description: "Author new mystery case scenarios" },
+    { action: "CASE_UPDATE", description: "Edit case briefings, difficulty, duration, and structure" },
+    { action: "CASE_PUBLISH", description: "Publish cases to the operative network" },
+    { action: "CASE_ARCHIVE", description: "Archive cases from public discovery" },
+    { action: "CHAPTER_MANAGE", description: "Create, reorder, and configure case acts/chapters" },
+    { action: "CHARACTER_MANAGE", description: "Author fictional case suspects and persons of interest" },
+    { action: "EVIDENCE_VIEW", description: "Inspect forensic clues and evidence distribution" },
+    { action: "EVIDENCE_CREATE", description: "Author new forensic clues and attach media assets" },
+    { action: "EVIDENCE_UPDATE", description: "Edit clue parameters, types, and distribution policies" },
+    { action: "EVIDENCE_DELETE", description: "Decommission or delete unassigned forensic clues" },
+    { action: "PUZZLE_VIEW", description: "Inspect interactive ciphers, codes, and logic challenges" },
+    { action: "PUZZLE_CREATE", description: "Author new interactive puzzle minigames and multi-stage challenges" },
+    { action: "PUZZLE_UPDATE", description: "Configure puzzle cipher text, hints, and secret solutions" },
+    { action: "PUZZLE_DELETE", description: "Delete puzzle challenges from chapters" },
+    { action: "INVESTIGATION_VIEW", description: "Monitor active and completed investigation sessions" },
+    { action: "INVESTIGATION_MANAGE", description: "Manage investigation states and operational overrides" },
+    { action: "ACHIEVEMENT_MANAGE", description: "Configure platform milestone accolades and criteria" },
+    { action: "REWARD_MANAGE", description: "Inspect XP ledgers and execute audited XP adjustments" },
+    { action: "ANALYTICS_VIEW", description: "Inspect aggregated operational analytics and telemetry" },
+    { action: "AUDIT_LOG_VIEW", description: "Audit administrative actions and security history" },
+    { action: "SYSTEM_SETTINGS_MANAGE", description: "Configure platform operational parameters and maintenance modes" },
   ];
 
   for (const perm of permissions) {
@@ -35,15 +67,34 @@ async function main() {
 
   const superAdminRole = await prisma.adminRole.upsert({
     where: { name: "SUPER_ADMIN" },
-    update: { description: "Unrestricted platform governance" },
+    update: { description: "Unrestricted platform governance & all permissions" },
     create: {
       name: "SUPER_ADMIN",
-      description: "Unrestricted platform governance",
+      description: "Unrestricted platform governance & all permissions",
+    },
+  });
+
+  const caseAuthorRole = await prisma.adminRole.upsert({
+    where: { name: "CASE_AUTHOR" },
+    update: { description: "Storyline architect: author campaigns, cases, chapters, clues, and puzzles" },
+    create: {
+      name: "CASE_AUTHOR",
+      description: "Storyline architect: author campaigns, cases, chapters, clues, and puzzles",
+    },
+  });
+
+  const moderatorRole = await prisma.adminRole.upsert({
+    where: { name: "MODERATOR" },
+    update: { description: "Community moderator: manage players, view sessions, and monitor audit logs" },
+    create: {
+      name: "MODERATOR",
+      description: "Community moderator: manage players, view sessions, and monitor audit logs",
     },
   });
 
   const allPerms = await prisma.adminPermission.findMany();
   for (const perm of allPerms) {
+    // SUPER_ADMIN gets all permissions
     await prisma.adminRolePermission.upsert({
       where: {
         roleId_permissionId: {
@@ -56,6 +107,79 @@ async function main() {
         roleId: superAdminRole.id,
         permissionId: perm.id,
       },
+    });
+
+    // CASE_AUTHOR gets CMS creation permissions
+    if (
+      perm.action.startsWith("CAMPAIGN_") ||
+      perm.action.startsWith("CASE_") ||
+      perm.action === "CHAPTER_MANAGE" ||
+      perm.action === "CHARACTER_MANAGE" ||
+      perm.action.startsWith("EVIDENCE_") ||
+      perm.action.startsWith("PUZZLE_") ||
+      perm.action === "DASHBOARD_VIEW"
+    ) {
+      await prisma.adminRolePermission.upsert({
+        where: {
+          roleId_permissionId: {
+            roleId: caseAuthorRole.id,
+            permissionId: perm.id,
+          },
+        },
+        update: {},
+        create: {
+          roleId: caseAuthorRole.id,
+          permissionId: perm.id,
+        },
+      });
+    }
+
+    // MODERATOR gets player management and monitoring permissions
+    if (
+      perm.action.startsWith("USER_") ||
+      perm.action.startsWith("INVESTIGATION_") ||
+      perm.action === "AUDIT_LOG_VIEW" ||
+      perm.action === "DASHBOARD_VIEW"
+    ) {
+      await prisma.adminRolePermission.upsert({
+        where: {
+          roleId_permissionId: {
+            roleId: moderatorRole.id,
+            permissionId: perm.id,
+          },
+        },
+        update: {},
+        create: {
+          roleId: moderatorRole.id,
+          permissionId: perm.id,
+        },
+      });
+    }
+  }
+
+  // Seed default system settings
+  const defaultSettings = [
+    {
+      key: "maintenance_mode",
+      value: { enabled: false, message: "System is undergoing scheduled maintenance." },
+      description: "Toggles network-wide maintenance mode lock",
+    },
+    {
+      key: "platform_config",
+      value: {
+        platformName: "MYSTERY NETWORK",
+        defaultCaseVisibility: "PUBLISHED",
+        allowPublicRegistration: true,
+      },
+      description: "Global operational settings and defaults",
+    },
+  ];
+
+  for (const setting of defaultSettings) {
+    await prisma.systemSetting.upsert({
+      where: { key: setting.key },
+      update: { description: setting.description },
+      create: setting,
     });
   }
 
