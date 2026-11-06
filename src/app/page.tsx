@@ -40,7 +40,7 @@ export default function HomePage() {
             <div className="flex items-center gap-2">
               <span className="inline-block w-2 h-2 rounded-full bg-blue-500" />
               <span className="text-xs font-mono uppercase tracking-wider text-slate-400">
-                Phase 04 — Telegram Mini App Authentication Active
+                Phase 05 — Player Interface & Investigator Dossier Active
               </span>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">{APP_STATUS_MESSAGE}</p>

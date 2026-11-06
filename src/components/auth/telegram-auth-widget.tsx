@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ShieldCheck, UserCheck, LogOut, AlertCircle, RefreshCw, Send } from "lucide-react";
+import Link from "next/link";
+import {
+  ShieldCheck,
+  UserCheck,
+  LogOut,
+  AlertCircle,
+  RefreshCw,
+  Send,
+  ArrowRight,
+} from "lucide-react";
 import type { SafeUserProfile } from "@/modules/authentication/types/auth.types";
 
 interface TelegramWebApp {
@@ -163,11 +172,18 @@ export function TelegramAuthWidget() {
           <span>Status: Verified</span>
         </div>
 
-        <div className="pt-1 flex justify-end">
+        <div className="pt-2 flex items-center justify-between gap-3">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1.5 text-xs font-mono px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors shadow-lg shadow-blue-900/30"
+          >
+            Access Intelligence Console
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
           <button
             type="button"
             onClick={handleLogout}
-            className="inline-flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded bg-[#131b2e] hover:bg-[#1a233a] border border-[#232f48] text-slate-300 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-mono px-3 py-2 rounded bg-[#131b2e] hover:bg-[#1a233a] border border-[#232f48] text-slate-400 hover:text-slate-200 transition-colors"
           >
             <LogOut className="w-3.5 h-3.5" />
             Sign Out

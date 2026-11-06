@@ -12,7 +12,7 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 | **02** | **Database Architecture & Prisma** |                                               **Completed**                                               | Neon PostgreSQL, Prisma schema, relational data modeling, migrations, connection pooling.                       |
 | **03** | **Telegram Bot Integration**       | **Completed (Bot Implementation & Webhook Architecture Ready, Live Webhook Setup Ready for Fresh Token)** | Telegram Bot API setup, webhook lifecycle, bot commands, onboarding links.                                      |
 | **04** | **Telegram Authentication**        |                                               **Completed**                                               | HMAC-SHA256 initData cryptographic verification, session issuance, secure auth tokens.                          |
-| **05** | Player Interface                   |                                                  Pending                                                  | Investigator dossier, profile setup, preferences, active case status view.                                      |
+| **05** | **Player Interface**               |                                               **Completed**                                               | Investigator dossier, profile setup, preferences, active case status view.                                      |
 | **06** | Case Management                    |                                                  Pending                                                  | Case catalog, difficulty ratings, acts, episodic releases, immutable case definitions.                          |
 | **07** | Investigation Engine               |                                                  Pending                                                  | Session state machine, investigation timelines, stage transitions, progress tracking.                           |
 | **08** | Evidence System                    |                                                  Pending                                                  | Asymmetric clue distribution, clue cards, forensic document viewer, IDOR protection.                            |
@@ -116,3 +116,24 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 - [x] Comprehensive test suite implemented (`tests/auth.test.ts` — 31 tests; 78 total tests passing across all suites).
 - [x] Complete architecture and security documentation authored (`docs/TELEGRAM_AUTHENTICATION.md`).
 - [x] Zero regressions across Phase 01–03 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.
+
+---
+
+## Phase 05: Player Interface & Investigator Dossier — Acceptance Checklist
+
+- [x] Deep navy intelligence aesthetic established with refined cyan and amber accents.
+- [x] Authenticated application shell implemented (`AppShell`) with desktop sidebar, mobile header, and bottom touch navigation.
+- [x] Mobile and Telegram Mini App safe-area insets handled (`pb-[max(0.5rem,env(safe-area-inset-bottom))]`) with zero horizontal overflow.
+- [x] Main dashboard implemented at `/dashboard` with identity header, dossier card, progression panel, investigation overview, commendations, and activity log.
+- [x] Real database metrics queried from Neon PostgreSQL (active cases, solved cases, assigned clues, unlocked achievements).
+- [x] Honest empty states implemented (zero fake leveling bars, zero simulated investigations, zero fabricated timelines).
+- [x] Rank classification hierarchy established (`INVESTIGATOR_RANKS`, `getRankForLevel`) mapping levels 1 through 20+ to operational badges (`OP-1` to `MST-5`).
+- [x] Profile management page implemented at `/profile` (`ProfileForm`) allowing customization of callsign, display name, specialization, theme, and language.
+- [x] Strict server-side profile update validation with Zod (`updateProfileSchema`) rejecting unauthorized mutation of protected fields (`xp`, `level`, `rank`, `status`).
+- [x] Codename uniqueness enforced with HTTP 409 (`CODENAME_TAKEN`) conflict handling.
+- [x] Secure API endpoints implemented: `GET /api/player/me` and `PATCH /api/player/profile`.
+- [x] Standby clearance briefings implemented for future roadmap modules (`/cases`, `/evidence`, `/board`, `/teams`, `/achievements`).
+- [x] Server-side route protection enforced via `getCurrentUser()` and `requireAuthenticatedUser()`.
+- [x] Comprehensive automated test suite implemented (`tests/player.test.ts` — 23 tests, 101 total tests passing).
+- [x] Complete documentation authored (`docs/PLAYER_INTERFACE.md`).
+- [x] Zero regressions across Phase 01–04 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.

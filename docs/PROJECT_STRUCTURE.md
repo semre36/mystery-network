@@ -13,10 +13,19 @@ mystery-network/
 ├── src/
 │   ├── app/                    # Next.js App Router (Routes, Layouts, API Endpoints)
 │   │   ├── layout.tsx          # Root HTML shell, dark theme metadata, viewport settings
-│   │   ├── page.tsx            # Foundation landing page (Phase 01)
+│   │   ├── page.tsx            # Foundation landing page & Mini App onboarding
 │   │   ├── globals.css         # Tailwind CSS styling, dark detective theme variables
 │   │   ├── error.tsx           # Global uncaught error boundary
 │   │   ├── not-found.tsx       # Detective-themed 404 handler
+│   │   ├── (player)/           # Authenticated player experience shell
+│   │   │   ├── layout.tsx      # AppShell wrapper & server auth guard verification
+│   │   │   ├── dashboard/page.tsx # Central intelligence command center
+│   │   │   ├── profile/page.tsx   # Dossier & clearance configuration
+│   │   │   ├── cases/page.tsx     # Case registry (Standby briefing)
+│   │   │   ├── evidence/page.tsx  # Evidence locker (Standby briefing)
+│   │   │   ├── board/page.tsx     # Investigation board (Standby briefing)
+│   │   │   ├── teams/page.tsx     # Squads & units (Standby briefing)
+│   │   │   └── achievements/page.tsx # Commendation registry (Standby briefing)
 │   │   └── api/
 │   │       ├── health/
 │   │       │   └── route.ts    # Liveness check endpoint (GET /api/health)
@@ -27,6 +36,11 @@ mystery-network/
 │   │       │   │   └── route.ts # Session Inspection Endpoint (GET /api/auth/session)
 │   │       │   └── logout/
 │   │       │       └── route.ts # Session Revocation Endpoint (POST /api/auth/logout)
+│   │       ├── player/
+│   │       │   ├── me/
+│   │       │   │   └── route.ts # Player dossier & stats endpoint (GET /api/player/me)
+│   │       │   └── profile/
+│   │       │       └── route.ts # Profile update endpoint (PATCH /api/player/profile)
 │   │       └── telegram/
 │   │           └── webhook/
 │   │               └── route.ts # Secure Telegram Bot API Webhook (POST /api/telegram/webhook)
@@ -78,6 +92,7 @@ mystery-network/
 │   ├── DATABASE_ARCHITECTURE.md# Complete database specification, ER diagram, index strategy
 │   ├── TELEGRAM_BOT.md         # Telegram Bot architecture, webhook security, CLI scripts
 │   ├── TELEGRAM_AUTHENTICATION.md # Cryptographic verification, sessions, identity mapping
+│   ├── PLAYER_INTERFACE.md     # Intelligence application shell, dossier, progression, profile
 │   ├── DEVELOPMENT_GUIDELINES.md # Code standards, TypeScript rules, test patterns
 │   ├── SECURITY_STANDARDS.md   # Secret isolation, HMAC verification, auth boundaries
 │   ├── PROJECT_STRUCTURE.md    # Directory layout & domain mapping (this file)
@@ -88,7 +103,8 @@ mystery-network/
 │   ├── foundation.test.ts      # Core utility, error, and logger unit tests
 │   ├── database.test.ts        # Database client singleton, models, and validation tests
 │   ├── telegram.test.ts        # Telegram commands, deep-link parsing, and webhook tests
-│   └── auth.test.ts            # Mini App auth HMAC verification, session & cookie tests
+│   ├── auth.test.ts            # Mini App auth HMAC verification, session & cookie tests
+│   └── player.test.ts          # Dossier queries, rank tiers, profile mutations, API tests
 │
 ├── .env.example                # Documented environment template
 ├── .gitignore                  # Git exclusions for secrets, builds, and node_modules
