@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CaseService } from "@/modules/cases/services/case.service";
+import { StartInvestigationButton } from "@/components/investigations/start-investigation-button";
 import {
   ChevronLeft,
   Clock,
@@ -195,19 +196,12 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
             </h3>
           </div>
           <p className="text-xs text-slate-300 max-w-xl">
-            You may review classified characters and chapter structure below. Active investigation
-            sessions, clue telemetry, and evidence verification dispatch will unlock in Phase 07.
+            Dispatch an operational field unit to begin your investigation. All chapter progression,
+            telemetry analysis, and timestamps are persisted to your operative profile.
           </p>
         </div>
 
-        <button
-          type="button"
-          disabled
-          className="shrink-0 px-6 py-3 rounded-xl bg-blue-600/30 border border-blue-500/50 text-blue-200 font-mono text-xs font-semibold cursor-not-allowed opacity-90 flex items-center gap-2"
-        >
-          <Sparkles className="w-4 h-4 text-cyan-400" />
-          <span>DISPATCH SESSION (PHASE 07)</span>
-        </button>
+        <StartInvestigationButton caseCode={caseData.caseCode} />
       </div>
 
       {/* Characters of Interest / Dossiers */}

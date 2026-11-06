@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   FolderSearch,
   FolderGit2,
+  Radio,
   FileKey,
   Network,
   Users2,
@@ -45,6 +46,11 @@ const NAV_ITEMS: readonly NavItem[] = [
     name: "Campaigns",
     href: "/campaigns",
     icon: FolderGit2,
+  },
+  {
+    name: "Investigations",
+    href: "/investigations",
+    icon: Radio,
   },
   {
     name: "Evidence",

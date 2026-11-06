@@ -29,6 +29,10 @@ mystery-network/
 │   │   │   │   ├── page.tsx       # Phase 06: Classified campaigns directory
 │   │   │   │   └── [slug]/
 │   │   │   │       └── page.tsx   # Phase 06: Campaign overview & connected cases
+│   │   │   ├── investigations/
+│   │   │   │   ├── page.tsx       # Phase 07: Player investigation sessions history
+│   │   │   │   └── [investigationId]/
+│   │   │   │       └── page.tsx   # Phase 07: Active investigation operative workspace
 │   │   │   ├── evidence/page.tsx  # Evidence locker (Standby briefing)
 │   │   │   ├── board/page.tsx     # Investigation board (Standby briefing)
 │   │   │   ├── teams/page.tsx     # Squads & units (Standby briefing)
@@ -56,6 +60,14 @@ mystery-network/
 │   │       │   ├── route.ts    # Phase 06: Campaigns catalog endpoint (GET /api/campaigns)
 │   │       │   └── [slug]/
 │   │       │       └── route.ts # Phase 06: Campaign detail endpoint (GET /api/campaigns/[slug])
+│   │       ├── investigations/
+│   │       │   ├── route.ts    # Phase 07: Start / query investigations (POST/GET /api/investigations)
+│   │       │   └── [investigationId]/
+│   │       │       ├── route.ts # Phase 07: Investigation workspace endpoint (GET)
+│   │       │       ├── status/
+│   │       │       │   └── route.ts # Phase 07: Lifecycle status transition endpoint (PATCH)
+│   │       │       └── progress/
+│   │       │           └── route.ts # Phase 07: Chapter progression endpoint (GET/PATCH)
 │   │       └── telegram/
 │   │           └── webhook/
 │   │               └── route.ts # Secure Telegram Bot API Webhook (POST /api/telegram/webhook)

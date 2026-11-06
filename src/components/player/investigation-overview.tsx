@@ -74,10 +74,10 @@ export function InvestigationOverview({ stats }: InvestigationOverviewProps) {
             </div>
           </div>
           <Link
-            href="/cases"
-            className="text-xs font-mono px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium"
+            href="/investigations"
+            className="text-xs font-mono px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors"
           >
-            Enter Session
+            Resume Field Session
           </Link>
         </div>
       ) : (

@@ -88,3 +88,19 @@
   - In production, cookies enforce `SameSite=None; Secure` to ensure persistent cookie propagation within Telegram Web's `<iframe>` and mobile WebViews.
 - **Constant-Time Verification**:
   - Token digest comparisons utilize `crypto.timingSafeEqual` to eliminate timing side-channel attacks.
+
+---
+
+## 9. Investigation Session Authorization & OPSEC (Phase 07)
+
+- **Participant Authorization Verification**:
+  - Every investigation endpoint enforces participant membership verification on the server.
+  - Guessing an investigation UUID returns HTTP 404 (`INVESTIGATION_NOT_FOUND`) rather than 403, preventing unauthorized UUID existence enumeration.
+- **State Machine Integrity**:
+  - Direct status modification is strictly disallowed. Only valid transitions (`PAUSE`, `RESUME`, `ABANDON`, `COMPLETE`) validated by server-side guards are permitted.
+  - Concluded investigations (`SOLVED`) and `ABANDONED` investigations remain permanently immutable.
+- **Progression Enclosure**:
+  - Players can only progress chapters sequentially (`chapterOrder + 1`).
+  - Attempting to unlock or progress a locked chapter is rejected with HTTP 400 (`CHAPTER_LOCKED`).
+- **Concurrency & Duplicate Guard**:
+  - Concurrency-safe interactive database transactions prevent race conditions and duplicate session generation on duplicate client requests.

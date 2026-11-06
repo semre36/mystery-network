@@ -14,7 +14,7 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 | **04** | **Telegram Authentication**        |                                               **Completed**                                               | HMAC-SHA256 initData cryptographic verification, session issuance, secure auth tokens.                          |
 | **05** | **Player Interface**               |                                               **Completed**                                               | Investigator dossier, profile setup, preferences, active case status view.                                      |
 | **06** | **Case Management**                |                                               **Completed**                                               | Case catalog, difficulty ratings, acts, episodic releases, immutable case definitions.                          |
-| **07** | Investigation Engine               |                                                  Pending                                                  | Session state machine, investigation timelines, stage transitions, progress tracking.                           |
+| **07** | **Investigation Engine**           |                                               **Completed**                                               | Session state machine, investigation timelines, stage transitions, progress tracking.                           |
 | **08** | Evidence System                    |                                                  Pending                                                  | Asymmetric clue distribution, clue cards, forensic document viewer, IDOR protection.                            |
 | **09** | Team Collaboration                 |                                                  Pending                                                  | Squad formation, invite codes, squad detective rooms, safe clue sharing channels.                               |
 | **10** | Interactive Puzzles                |                                                  Pending                                                  | Minigames, cipher decoders, cryptograms, logic puzzles, server-side validation.                                 |
@@ -157,3 +157,24 @@ This document outlines the 14 approved phases for building the MYSTERY NETWORK c
 - [x] Comprehensive automated test suite implemented (`tests/cases.test.ts` — 28 tests, 129 total tests passing across all suites).
 - [x] Complete architecture and security documentation authored (`docs/CASE_MANAGEMENT.md`).
 - [x] Zero regressions across Phase 01–05 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.
+
+---
+
+## Phase 07: Investigation Engine & Session Management — Acceptance Checklist
+
+- [x] Architectural separation maintained: immutable case content definitions separated from dynamic, multi-participant investigation executions.
+- [x] Investigation lifecycle & state machine implemented supporting `NOT_STARTED`, `IN_PROGRESS`, `PAUSED`, `SOLVED`, `FAILED`, and `ABANDONED`.
+- [x] Schema migration applied safely to Neon PostgreSQL (`20261106072951_add_paused_to_investigation_status`) to support tactical session pauses.
+- [x] Concurrency safety & session reuse policy implemented: interactive database transactions prevent duplicate active sessions on double-click; automatically resumes paused sessions.
+- [x] Sequential chapter progression engine implemented: Act 1 begins in `IN_PROGRESS`; subsequent chapters initialize as `LOCKED`; concluding an act automatically unlocks the subsequent act.
+- [x] Strict server-side participant authorization: investigations are accessible only to authenticated active operatives; non-participants receive 404 (`INVESTIGATION_NOT_FOUND`) to prevent ID existence probing.
+- [x] State machine transition guards: validates that paused investigations can resume, only active sessions can be paused or concluded, and concluded/abandoned sessions remain immutable.
+- [x] Investigation domain service implemented (`InvestigationService`) with `startInvestigation`, `getInvestigationWorkspace`, `getPlayerInvestigations`, `transitionStatus`, and `updateChapterProgress`.
+- [x] REST API endpoints implemented: `POST /api/investigations`, `GET /api/investigations`, `GET /api/investigations/[investigationId]`, `PATCH /api/investigations/[investigationId]/status`, `GET /api/investigations/[investigationId]/progress`, and `PATCH /api/investigations/[investigationId]/progress`.
+- [x] Operative workspace implemented at `/investigations/[investigationId]` featuring `WorkspaceHeader`, `ChapterProgressionBoard`, Persons of Interest roster, and peripheral module placeholders.
+- [x] Investigation history directory implemented at `/investigations` with status tabs (`All`, `Active`, `Paused`, `Solved`) and `InvestigationCard`.
+- [x] Interactive `StartInvestigationButton` integrated into the case briefing page (`/cases/[caseId]`).
+- [x] Navigation sidebar and mobile navigation bar updated to include active investigations.
+- [x] Comprehensive automated test suite implemented (`tests/investigations.test.ts` — 24 tests, 153 total tests passing across all suites).
+- [x] Complete architecture and lifecycle documentation authored (`docs/INVESTIGATION_ENGINE.md`).
+- [x] Zero regressions across Phase 01–06 features; strict TypeScript compilation, linting, formatting, and Next.js production build verified.

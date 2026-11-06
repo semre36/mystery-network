@@ -45,6 +45,7 @@ enum PlayMode {
 enum InvestigationStatus {
   NOT_STARTED
   IN_PROGRESS
+  PAUSED
   SOLVED
   FAILED
   ABANDONED

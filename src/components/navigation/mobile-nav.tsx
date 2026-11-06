@@ -3,12 +3,12 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FolderSearch, FileKey, UserCog } from "lucide-react";
+import { LayoutDashboard, FolderSearch, Radio, UserCog } from "lucide-react";
 
 const MOBILE_NAV_ITEMS = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Cases", href: "/cases", icon: FolderSearch },
-  { name: "Evidence", href: "/evidence", icon: FileKey },
+  { name: "Sessions", href: "/investigations", icon: Radio },
   { name: "Profile", href: "/profile", icon: UserCog },
 ] as const;
 

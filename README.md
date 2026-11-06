@@ -79,6 +79,7 @@ Full architectural specifications, security rules, and roadmaps are located in t
 - [Telegram Mini App Authentication & Sessions](./docs/TELEGRAM_AUTHENTICATION.md)
 - [Player Interface & Investigator Dossier](./docs/PLAYER_INTERFACE.md)
 - [Case Management & Discovery System](./docs/CASE_MANAGEMENT.md)
+- [Investigation Engine & Session Management](./docs/INVESTIGATION_ENGINE.md)
 - [Development Guidelines](./docs/DEVELOPMENT_GUIDELINES.md)
 - [Security Standards](./docs/SECURITY_STANDARDS.md)
 - [Project Structure & Directory Map](./docs/PROJECT_STRUCTURE.md)
@@ -94,8 +95,10 @@ Full architectural specifications, security rules, and roadmaps are located in t
 - **Phase 04: Telegram Mini App Authentication** — Completed (HMAC-SHA256 InitData Verification, AuthSession Management, Transactional Provisioning, HTTP-Only Cookies).
 - **Phase 05: Player Interface & Investigator Dossier** — Completed (Central Intelligence Console, Responsive AppShell, Dossier Management, Progression Tracking, Real Metrics).
 - **Phase 06: Case Management & Discovery System** — Completed (Case Archive, Classified Dossier Briefing, Campaign Directory, Threat Classification, Public API Redaction).
+- **Phase 07: Investigation Engine & Session Management** — Completed (Lifecycle State Machine, Atomic Session Creation & Reuse, Chapter Progression Engine, Workspace UI, Session History).
 - Health Endpoint: `GET /api/health`
 - Telegram Webhook: `POST /api/telegram/webhook`
 - Auth Endpoints: `POST /api/auth/telegram`, `GET /api/auth/session`, `POST /api/auth/logout`
 - Player Endpoints: `GET /api/player/me`, `PATCH /api/player/profile`
 - Case & Campaign Endpoints: `GET /api/cases`, `GET /api/cases/[caseId]`, `GET /api/campaigns`, `GET /api/campaigns/[slug]`
+- Investigation Endpoints: `POST /api/investigations`, `GET /api/investigations`, `GET /api/investigations/[investigationId]`, `PATCH /api/investigations/[investigationId]/status`, `GET /api/investigations/[investigationId]/progress`, `PATCH /api/investigations/[investigationId]/progress`
