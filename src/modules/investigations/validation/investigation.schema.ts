@@ -10,8 +10,8 @@ export const StartInvestigationSchema = z.object({
 });
 
 export const InvestigationTransitionSchema = z.object({
-  action: z.enum(["PAUSE", "RESUME", "ABANDON", "COMPLETE"], {
-    message: "Invalid lifecycle transition action. Allowed: PAUSE, RESUME, ABANDON, COMPLETE",
+  action: z.enum(["PAUSE", "RESUME", "ABANDON", "COMPLETE", "FAIL"], {
+    message: "Invalid lifecycle transition action. Allowed: PAUSE, RESUME, ABANDON, COMPLETE, FAIL",
   }),
 });
 

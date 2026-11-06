@@ -222,6 +222,14 @@ export class InvestigationService {
 
     // Execute atomic session creation or reuse in an interactive transaction
     return await prisma.$transaction(async (tx) => {
+      // Concurrency lock: Acquire transactional advisory lock scoped to (playerId, caseRecord.id).
+      // This serializes concurrent initialization attempts for the same player & case at the database level,
+      // guaranteeing that simultaneous requests resolve to the identical active investigation session,
+      // while concurrent requests for different players or different cases run unblocked.
+      if (typeof tx.$executeRaw === "function") {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${playerId}), hashtext(${caseRecord.id}))`;
+      }
+
       // 1. Check for an existing non-terminal investigation for this player & case
       const existingParticipant = await tx.investigationParticipant.findFirst({
         where: {
@@ -294,16 +302,21 @@ export class InvestigationService {
         },
       });
 
-      // 4. Initialize chapter progression records
+      // 4. Initialize chapter progression records (supporting arbitrary/non-consecutive chapterOrder)
       if (caseRecord.chapters.length > 0) {
-        const progressEntries = caseRecord.chapters.map((chapter) => ({
+        const sortedChapters = [...caseRecord.chapters].sort(
+          (a, b) => a.chapterOrder - b.chapterOrder
+        );
+        const firstChapterId = sortedChapters[0].id;
+
+        const progressEntries = sortedChapters.map((chapter) => ({
           investigationId: newInvestigation.id,
           chapterId: chapter.id,
           status:
-            chapter.chapterOrder === 1
+            chapter.id === firstChapterId
               ? ChapterProgressStatus.IN_PROGRESS
               : ChapterProgressStatus.LOCKED,
-          unlockedAt: chapter.chapterOrder === 1 ? new Date() : null,
+          unlockedAt: chapter.id === firstChapterId ? new Date() : null,
         }));
 
         await tx.investigationProgress.createMany({
@@ -496,7 +509,7 @@ export class InvestigationService {
   public static async transitionStatus(
     userId: string,
     investigationId: string,
-    action: "PAUSE" | "RESUME" | "ABANDON" | "COMPLETE"
+    action: "PAUSE" | "RESUME" | "ABANDON" | "COMPLETE" | "FAIL"
   ): Promise<SafeInvestigationWorkspaceDto> {
     const playerId = await this.getPlayerProfileId(userId);
 
@@ -600,6 +613,25 @@ export class InvestigationService {
         completedAt = new Date();
         break;
 
+      case "FAIL":
+        if (currentStatus === InvestigationStatus.FAILED) {
+          // Idempotent
+          return this.buildWorkspace(investigation);
+        }
+        if (
+          currentStatus === InvestigationStatus.SOLVED ||
+          currentStatus === InvestigationStatus.ABANDONED
+        ) {
+          throw new AppError(
+            `Cannot fail an investigation that is already concluded (${currentStatus}).`,
+            400,
+            "INVALID_STATUS_TRANSITION"
+          );
+        }
+        targetStatus = InvestigationStatus.FAILED;
+        completedAt = new Date();
+        break;
+
       default:
         throw new AppError("Unsupported lifecycle action", 400, "INVALID_ACTION");
     }
@@ -672,6 +704,10 @@ export class InvestigationService {
       );
     }
 
+    if (currentProgress.status === ChapterProgressStatus.COMPLETED) {
+      throw new AppError("Chapter has already been completed.", 400, "CHAPTER_ALREADY_COMPLETED");
+    }
+
     if (action === "START_CHAPTER") {
       if (currentProgress.status === ChapterProgressStatus.LOCKED) {
         throw new AppError(
@@ -693,7 +729,11 @@ export class InvestigationService {
       }
     } else if (action === "COMPLETE_CHAPTER") {
       if (currentProgress.status === ChapterProgressStatus.LOCKED) {
-        throw new AppError("Cannot complete a locked chapter.", 400, "CHAPTER_LOCKED");
+        throw new AppError(
+          "Cannot complete a locked chapter. Unlock and start it first.",
+          400,
+          "CHAPTER_LOCKED"
+        );
       }
 
       const now = new Date();
@@ -708,10 +748,12 @@ export class InvestigationService {
       currentProgress.status = ChapterProgressStatus.COMPLETED;
       currentProgress.completedAt = now;
 
-      // Unlock next chapter in sequence if one exists
-      const nextProgress = investigation.progress.find(
-        (p: any) => p.chapter.chapterOrder === currentProgress.chapter.chapterOrder + 1
-      );
+      // Unlock next chapter in sequence if one exists (supports arbitrary / non-consecutive chapterOrder)
+      const subsequentProgress = investigation.progress
+        .filter((p: any) => p.chapter.chapterOrder > currentProgress.chapter.chapterOrder)
+        .sort((a: any, b: any) => a.chapter.chapterOrder - b.chapter.chapterOrder);
+
+      const nextProgress = subsequentProgress.length > 0 ? subsequentProgress[0] : null;
 
       if (nextProgress && nextProgress.status === ChapterProgressStatus.LOCKED) {
         await prisma.investigationProgress.update({

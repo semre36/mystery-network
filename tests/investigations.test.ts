@@ -36,6 +36,7 @@ describe("Investigation Engine & Session Management (Phase 07)", () => {
   const MOCK_CASE_ID = "00000000-0000-4000-a000-000000000005";
   const MOCK_CHAPTER_ID_1 = "00000000-0000-4000-a000-000000000006";
   const MOCK_CHAPTER_ID_2 = "00000000-0000-4000-a000-000000000007";
+  const MOCK_CHAPTER_ID_3 = "00000000-0000-4000-a000-000000000009";
   const MOCK_INVESTIGATION_ID = "00000000-0000-4000-a000-000000000008";
 
   const mockAuthenticatedUser = {
@@ -303,6 +304,108 @@ describe("Investigation Engine & Session Management (Phase 07)", () => {
         InvestigationService.startInvestigation(MOCK_USER_ID, "CASE-RESTRICTED")
       ).rejects.toThrow(AppError);
     });
+
+    it("should ensure two simultaneous start requests for the same player resolve to the same active investigation", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_PROFILE_ID,
+      } as any);
+      vi.spyOn(prisma.case, "findFirst").mockResolvedValue(mockDbCase as any);
+
+      let sharedSession: any = null;
+      let lockHeld = false;
+      const executeRawSpy = vi.fn().mockImplementation(async () => {
+        while (lockHeld) {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
+        lockHeld = true;
+      });
+
+      vi.spyOn(prisma, "$transaction").mockImplementation(async (callback: any) => {
+        const txMock = {
+          $executeRaw: executeRawSpy,
+          investigationParticipant: {
+            findFirst: vi.fn().mockImplementation(async () => {
+              if (sharedSession) {
+                return {
+                  id: "part_existing",
+                  investigationId: sharedSession.id,
+                  investigation: sharedSession,
+                };
+              }
+              return null;
+            }),
+            create: vi.fn().mockResolvedValue({ id: "part_new" }),
+          },
+          investigation: {
+            create: vi.fn().mockImplementation(async () => {
+              sharedSession = {
+                id: "inv_shared_concurrency",
+                status: InvestigationStatus.IN_PROGRESS,
+              };
+              return sharedSession;
+            }),
+            update: vi.fn(),
+          },
+          investigationProgress: {
+            createMany: vi.fn().mockResolvedValue({ count: 2 }),
+          },
+        };
+
+        try {
+          return await callback(txMock);
+        } finally {
+          lockHeld = false;
+        }
+      });
+
+      // Fire two simultaneous requests
+      const [res1, res2] = await Promise.all([
+        InvestigationService.startInvestigation(MOCK_USER_ID, "CASE-001-MIDNIGHT-PROTOCOL"),
+        InvestigationService.startInvestigation(MOCK_USER_ID, "CASE-001-MIDNIGHT-PROTOCOL"),
+      ]);
+
+      expect(res1.investigationId).toBe("inv_shared_concurrency");
+      expect(res2.investigationId).toBe("inv_shared_concurrency");
+      expect(res1.investigationId).toBe(res2.investigationId);
+      expect(res1.wasResumed).toBe(false);
+      expect(res2.wasResumed).toBe(true);
+      expect(executeRawSpy).toHaveBeenCalled();
+    });
+
+    it("should create a fresh investigation while retaining previous SOLVED and ABANDONED investigations in history", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValueOnce({
+        id: MOCK_PROFILE_ID,
+      } as any);
+      vi.spyOn(prisma.case, "findFirst").mockResolvedValueOnce(mockDbCase as any);
+
+      const createSpy = vi.fn().mockResolvedValue({ id: "inv_new_run" });
+      vi.spyOn(prisma, "$transaction").mockImplementationOnce(async (callback: any) => {
+        const txMock = {
+          $executeRaw: vi.fn().mockResolvedValue(1),
+          investigationParticipant: {
+            // Player previously had a SOLVED or ABANDONED session, but findFirst looks only for ACTIVE/non-terminal
+            findFirst: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockResolvedValue({ id: "part_new_run" }),
+          },
+          investigation: {
+            create: createSpy,
+          },
+          investigationProgress: {
+            createMany: vi.fn().mockResolvedValue({ count: 2 }),
+          },
+        };
+        return callback(txMock);
+      });
+
+      const result = await InvestigationService.startInvestigation(
+        MOCK_USER_ID,
+        "CASE-001-MIDNIGHT-PROTOCOL"
+      );
+
+      expect(result.investigationId).toBe("inv_new_run");
+      expect(result.wasResumed).toBe(false);
+      expect(createSpy).toHaveBeenCalled();
+    });
   });
 
   // =========================================================================
@@ -460,6 +563,183 @@ describe("Investigation Engine & Session Management (Phase 07)", () => {
       );
       expect(result.status).toBe(InvestigationStatus.SOLVED);
     });
+
+    it("should successfully RESUME a PAUSED investigation to IN_PROGRESS", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_PROFILE_ID,
+      } as any);
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValueOnce({
+        ...createMockInvestigation(),
+        status: InvestigationStatus.PAUSED,
+      } as any);
+      const updateSpy = vi.spyOn(prisma.investigation, "update").mockResolvedValueOnce({
+        updatedAt: new Date(),
+      } as any);
+
+      const result = await InvestigationService.transitionStatus(
+        MOCK_USER_ID,
+        MOCK_INVESTIGATION_ID,
+        "RESUME"
+      );
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: InvestigationStatus.IN_PROGRESS }),
+        })
+      );
+      expect(result.status).toBe(InvestigationStatus.IN_PROGRESS);
+    });
+
+    it("should successfully ABANDON an IN_PROGRESS or PAUSED investigation", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_PROFILE_ID,
+      } as any);
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValueOnce({
+        ...createMockInvestigation(),
+        status: InvestigationStatus.IN_PROGRESS,
+      } as any);
+      const updateSpy = vi.spyOn(prisma.investigation, "update").mockResolvedValueOnce({
+        updatedAt: new Date(),
+      } as any);
+
+      const result = await InvestigationService.transitionStatus(
+        MOCK_USER_ID,
+        MOCK_INVESTIGATION_ID,
+        "ABANDON"
+      );
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: InvestigationStatus.ABANDONED }),
+        })
+      );
+      expect(result.status).toBe(InvestigationStatus.ABANDONED);
+    });
+
+    it("should successfully FAIL an active or paused investigation", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_PROFILE_ID,
+      } as any);
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValueOnce({
+        ...createMockInvestigation(),
+        status: InvestigationStatus.IN_PROGRESS,
+      } as any);
+      const updateSpy = vi.spyOn(prisma.investigation, "update").mockResolvedValueOnce({
+        updatedAt: new Date(),
+      } as any);
+
+      const result = await InvestigationService.transitionStatus(
+        MOCK_USER_ID,
+        MOCK_INVESTIGATION_ID,
+        "FAIL"
+      );
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: InvestigationStatus.FAILED }),
+        })
+      );
+      expect(result.status).toBe(InvestigationStatus.FAILED);
+    });
+
+    it("should handle idempotent status transition requests cleanly without throwing", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_PROFILE_ID,
+      } as any);
+
+      // Idempotent PAUSE on PAUSED
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValueOnce({
+        ...createMockInvestigation(),
+        status: InvestigationStatus.PAUSED,
+      } as any);
+      const pausedRes = await InvestigationService.transitionStatus(
+        MOCK_USER_ID,
+        MOCK_INVESTIGATION_ID,
+        "PAUSE"
+      );
+      expect(pausedRes.status).toBe(InvestigationStatus.PAUSED);
+
+      // Idempotent RESUME on IN_PROGRESS
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValueOnce({
+        ...createMockInvestigation(),
+        status: InvestigationStatus.IN_PROGRESS,
+      } as any);
+      const inProgressRes = await InvestigationService.transitionStatus(
+        MOCK_USER_ID,
+        MOCK_INVESTIGATION_ID,
+        "RESUME"
+      );
+      expect(inProgressRes.status).toBe(InvestigationStatus.IN_PROGRESS);
+
+      // Idempotent COMPLETE on SOLVED
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValueOnce({
+        ...createMockInvestigation(),
+        status: InvestigationStatus.SOLVED,
+      } as any);
+      const solvedRes = await InvestigationService.transitionStatus(
+        MOCK_USER_ID,
+        MOCK_INVESTIGATION_ID,
+        "COMPLETE"
+      );
+      expect(solvedRes.status).toBe(InvestigationStatus.SOLVED);
+    });
+
+    it("should reject modifying terminal states (SOLVED, ABANDONED, FAILED)", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_PROFILE_ID,
+      } as any);
+
+      // SOLVED cannot be resumed or abandoned
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValueOnce({
+        ...createMockInvestigation(),
+        status: InvestigationStatus.SOLVED,
+      } as any);
+      await expect(
+        InvestigationService.transitionStatus(MOCK_USER_ID, MOCK_INVESTIGATION_ID, "RESUME")
+      ).rejects.toThrow("Cannot resume investigation in 'SOLVED' status");
+
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValueOnce({
+        ...createMockInvestigation(),
+        status: InvestigationStatus.SOLVED,
+      } as any);
+      await expect(
+        InvestigationService.transitionStatus(MOCK_USER_ID, MOCK_INVESTIGATION_ID, "ABANDON")
+      ).rejects.toThrow("Cannot abandon an investigation that is already concluded (SOLVED)");
+
+      // ABANDONED cannot be resumed or completed
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValueOnce({
+        ...createMockInvestigation(),
+        status: InvestigationStatus.ABANDONED,
+      } as any);
+      await expect(
+        InvestigationService.transitionStatus(MOCK_USER_ID, MOCK_INVESTIGATION_ID, "RESUME")
+      ).rejects.toThrow("Cannot resume investigation in 'ABANDONED' status");
+
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValueOnce({
+        ...createMockInvestigation(),
+        status: InvestigationStatus.ABANDONED,
+      } as any);
+      await expect(
+        InvestigationService.transitionStatus(MOCK_USER_ID, MOCK_INVESTIGATION_ID, "COMPLETE")
+      ).rejects.toThrow("Cannot complete investigation in 'ABANDONED' status");
+
+      // FAILED cannot be resumed or completed
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValueOnce({
+        ...createMockInvestigation(),
+        status: InvestigationStatus.FAILED,
+      } as any);
+      await expect(
+        InvestigationService.transitionStatus(MOCK_USER_ID, MOCK_INVESTIGATION_ID, "RESUME")
+      ).rejects.toThrow("Cannot resume investigation in 'FAILED' status");
+
+      vi.spyOn(prisma.investigation, "findUnique").mockResolvedValueOnce({
+        ...createMockInvestigation(),
+        status: InvestigationStatus.FAILED,
+      } as any);
+      await expect(
+        InvestigationService.transitionStatus(MOCK_USER_ID, MOCK_INVESTIGATION_ID, "COMPLETE")
+      ).rejects.toThrow("Cannot complete investigation in 'FAILED' status");
+    });
   });
 
   // =========================================================================
@@ -544,6 +824,149 @@ describe("Investigation Engine & Session Management (Phase 07)", () => {
           "COMPLETE_CHAPTER"
         )
       ).rejects.toThrow("Cannot update chapter progress while investigation is 'PAUSED'");
+    });
+
+    it("should handle non-consecutive chapter orders (1, 3, 5), prevent repeated completion, and enable conclusion only after final chapter", async () => {
+      vi.spyOn(prisma.playerProfile, "findUnique").mockResolvedValue({
+        id: MOCK_PROFILE_ID,
+      } as any);
+
+      // Create a fixture with non-consecutive chapter orders 1, 3, and 5
+      const nonConsecutiveInv: any = {
+        ...createMockInvestigation(),
+        progress: [
+          {
+            id: "prog_ch1",
+            investigationId: MOCK_INVESTIGATION_ID,
+            chapterId: MOCK_CHAPTER_ID_1,
+            status: ChapterProgressStatus.IN_PROGRESS,
+            unlockedAt: new Date("2026-11-06T08:00:00Z"),
+            completedAt: null,
+            chapter: {
+              id: MOCK_CHAPTER_ID_1,
+              chapterOrder: 1,
+              title: "Act 1: The Initial Breach",
+            },
+          },
+          {
+            id: "prog_ch3",
+            investigationId: MOCK_INVESTIGATION_ID,
+            chapterId: MOCK_CHAPTER_ID_2,
+            status: ChapterProgressStatus.LOCKED,
+            unlockedAt: null,
+            completedAt: null,
+            chapter: {
+              id: MOCK_CHAPTER_ID_2,
+              chapterOrder: 3, // Non-consecutive order (skips 2)
+              title: "Act 2: The Deep Anomaly",
+            },
+          },
+          {
+            id: "prog_ch5",
+            investigationId: MOCK_INVESTIGATION_ID,
+            chapterId: MOCK_CHAPTER_ID_3,
+            status: ChapterProgressStatus.LOCKED,
+            unlockedAt: null,
+            completedAt: null,
+            chapter: {
+              id: MOCK_CHAPTER_ID_3,
+              chapterOrder: 5, // Non-consecutive order (skips 4)
+              title: "Act 3: The Core Transmission",
+            },
+          },
+        ],
+      };
+
+      vi.spyOn(prisma.investigation, "findUnique").mockImplementation((() =>
+        Promise.resolve(nonConsecutiveInv)) as any);
+      vi.spyOn(prisma.investigationProgress, "update").mockImplementation((async ({
+        where,
+        data,
+      }: any) => {
+        const item = nonConsecutiveInv.progress.find((p: any) => p.id === where.id);
+        if (item) {
+          Object.assign(item, data);
+        }
+        return item;
+      }) as any);
+      vi.spyOn(prisma.investigation, "update").mockResolvedValue({ updatedAt: new Date() } as any);
+
+      // 1. Locked chapter 3 cannot be started
+      await expect(
+        InvestigationService.updateChapterProgress(
+          MOCK_USER_ID,
+          MOCK_INVESTIGATION_ID,
+          MOCK_CHAPTER_ID_2,
+          "START_CHAPTER"
+        )
+      ).rejects.toThrow("Cannot start locked chapter");
+
+      // 2. Complete chapter 1 -> Should unlock the next actual chapter (order 3), NOT require order 2
+      const step1 = await InvestigationService.updateChapterProgress(
+        MOCK_USER_ID,
+        MOCK_INVESTIGATION_ID,
+        MOCK_CHAPTER_ID_1,
+        "COMPLETE_CHAPTER"
+      );
+      expect(step1.completedChaptersCount).toBe(1);
+      expect(nonConsecutiveInv.progress[0].status).toBe(ChapterProgressStatus.COMPLETED);
+      expect(nonConsecutiveInv.progress[1].status).toBe(ChapterProgressStatus.UNLOCKED);
+      expect(nonConsecutiveInv.progress[2].status).toBe(ChapterProgressStatus.LOCKED);
+
+      // 3. Completed chapter 1 cannot be completed again
+      await expect(
+        InvestigationService.updateChapterProgress(
+          MOCK_USER_ID,
+          MOCK_INVESTIGATION_ID,
+          MOCK_CHAPTER_ID_1,
+          "COMPLETE_CHAPTER"
+        )
+      ).rejects.toThrow("Chapter has already been completed");
+
+      // 4. Start unlocked chapter 3 -> Transitions to IN_PROGRESS
+      await InvestigationService.updateChapterProgress(
+        MOCK_USER_ID,
+        MOCK_INVESTIGATION_ID,
+        MOCK_CHAPTER_ID_2,
+        "START_CHAPTER"
+      );
+      expect(nonConsecutiveInv.progress[1].status).toBe(ChapterProgressStatus.IN_PROGRESS);
+
+      // 5. Attempting to conclude investigation (COMPLETE) while chapter 5 is incomplete must reject
+      await expect(
+        InvestigationService.transitionStatus(MOCK_USER_ID, MOCK_INVESTIGATION_ID, "COMPLETE")
+      ).rejects.toThrow(
+        "Cannot conclude investigation: unresolved tactical acts or chapters remain"
+      );
+
+      // 6. Complete chapter 3 -> Unlocks chapter 5 (skipping 4)
+      await InvestigationService.updateChapterProgress(
+        MOCK_USER_ID,
+        MOCK_INVESTIGATION_ID,
+        MOCK_CHAPTER_ID_2,
+        "COMPLETE_CHAPTER"
+      );
+      expect(nonConsecutiveInv.progress[1].status).toBe(ChapterProgressStatus.COMPLETED);
+      expect(nonConsecutiveInv.progress[2].status).toBe(ChapterProgressStatus.UNLOCKED);
+
+      // 7. Complete final chapter 5 -> All 3 chapters now completed
+      const step3 = await InvestigationService.updateChapterProgress(
+        MOCK_USER_ID,
+        MOCK_INVESTIGATION_ID,
+        MOCK_CHAPTER_ID_3,
+        "COMPLETE_CHAPTER"
+      );
+      expect(step3.completedChaptersCount).toBe(3);
+      expect(nonConsecutiveInv.progress[2].status).toBe(ChapterProgressStatus.COMPLETED);
+
+      // 8. With all chapters complete, concluding investigation succeeds and transitions to SOLVED
+      const concluded = await InvestigationService.transitionStatus(
+        MOCK_USER_ID,
+        MOCK_INVESTIGATION_ID,
+        "COMPLETE"
+      );
+      expect(concluded.status).toBe(InvestigationStatus.SOLVED);
+      expect(concluded.completedAt).not.toBeNull();
     });
   });
 
